@@ -65,6 +65,12 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
 .foot button{flex:1;border:1px solid #0E6B66;background:#fff;color:#0E6B66;padding:11px;border-radius:9px;font-size:14px;font-family:inherit}
 .foot button.p{background:#0E6B66;color:#fff}
 .tip{font-size:12px;color:#8a95a3;line-height:1.7;margin-top:8px}
+.mini{border:1px solid #0E6B66;background:#fff;color:#0E6B66;border-radius:8px;padding:5px 12px;font-size:12px;font-family:inherit;font-weight:600}
+.mini:disabled{opacity:.5}
+#oddsList{max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#oddsList .sc{font-size:13px;padding:9px 2px;cursor:pointer}
+#oddsList .sc:active{background:#EEF4F8}
+#oddsList .p{font-size:13px;white-space:nowrap}
 .del{color:#C0504D;font-size:12px;border:0;background:none;font-family:inherit;padding:0}
 </style>
 </head>
@@ -80,6 +86,11 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
 </div>
 
 <div class="page on" id="pred">
+  <div class="card">
+    <div class="title"><span>体彩在售</span><button class="mini" id="pullBtn">拉取官网</button></div>
+    <div id="oddsList" class="tip">点右上角「拉取官网」，直接从体彩官网取今天的场次和竞彩赔率</div>
+    <div class="tip" id="oddsTime"></div>
+  </div>
   <div class="card">
     <div class="row">
       <div><label>主队</label><input id="h" placeholder="主队"></div>
@@ -275,7 +286,65 @@ function renderLedger(){
   }).join('');
   document.getElementById('storeInfo').textContent=`共 ${led.length} 场，已记结果 ${led.filter(x=>x.scored).length} 场。数据存在这台设备的浏览器里，换设备/清缓存会丢——记得导出。`;
 }
-window.delItem=function(id){save(load().filter(x=>x.id!==id));renderLedger();renderCalib();};
+window.delItem=function(id){save(load().filter(x=>x.id!==id));/* ============ 官网赔率 ============ */
+const API='https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry?poolCode=hhad,had&channel=c';
+const ODDS_KEY='jc_odds_v1';
+let ODDS=[];
+function oddsCache(){try{return JSON.parse(localStorage.getItem(ODDS_KEY)||'null')}catch(e){return null}}
+function renderOdds(data){
+  const box=document.getElementById('oddsList'), tm=document.getElementById('oddsTime');
+  const sell=(data.list||[]).filter(m=>m.st==='Selling');
+  ODDS=sell;
+  if(!sell.length){box.textContent='当前没有在售场次';tm.textContent='';return;}
+  box.innerHTML=sell.map((m,i)=>
+    `<div class="sc" onclick="pickOdds(${i})"><span>${m.num} ${m.lg}<br><b>${m.h} vs ${m.a}</b></span>
+     <span class="p">${m.hh}/${m.hd}/${m.ha}</span></div>`).join('');
+  const t=new Date(data.t);
+  tm.textContent=`${sell.length} 场在售 · 更新于 ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+}
+async function pullOdds(){
+  const btn=document.getElementById('pullBtn'), box=document.getElementById('oddsList');
+  btn.disabled=true; btn.textContent='拉取中…';
+  try{
+    const r=await fetch(API,{cache:'no-store'});
+    const d=await r.json();
+    const list=[];
+    for(const day of ((d.value||{}).matchInfoList||[]))
+      for(const m of (day.subMatchList||[])){
+        const hd=m.had||{}, hh=m.hhad||{};
+        list.push({num:m.matchNumStr,lg:m.leagueAbbName,h:m.homeTeamAbbName,a:m.awayTeamAbbName,
+          date:m.matchDate,time:m.matchTime,st:m.matchStatus,
+          hh:hd.h,hd:hd.d,ha:hd.a,line:hh.goalLine,ch:hh.h,cd:hh.d,ca:hh.a});
+      }
+    const data={t:Date.now(),list};
+    localStorage.setItem(ODDS_KEY,JSON.stringify(data));
+    renderOdds(data);
+    btn.textContent='刷新';
+  }catch(e){
+    box.textContent='拉取失败：'+e.message+'　（不影响手动填）';
+    btn.textContent='重试';
+  }
+  btn.disabled=false;
+}
+window.pickOdds=function(i){
+  const m=ODDS[i]; if(!m)return;
+  document.getElementById('h').value=m.h||'';
+  document.getElementById('a').value=m.a||'';
+  document.getElementById('hc').value=(m.line===''||m.line==null)?'':m.line;
+  document.getElementById('ch').value=m.ch||'';
+  document.getElementById('cd').value=m.cd||'';
+  document.getElementById('ca').value=m.ca||'';
+  const oh=document.getElementById('oh');
+  oh.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>oh.focus(),200);
+};
+document.getElementById('pullBtn').onclick=pullOdds;
+(function(){
+  const c=oddsCache();
+  if(c) renderOdds(c);
+  else pullOdds();
+})();
+renderLedger();renderCalib();};
 window.setResult=function(id){
   const led=load();const it=led.find(x=>x.id===id);if(!it)return;
   const s=(document.getElementById('r'+id).value||'').trim().replace(':','-');

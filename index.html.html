@@ -169,9 +169,13 @@ function predict(eu){const inv=eu.map(x=>1/x),s=inv.reduce((a,b)=>a+b,0),p=inv.m
  const mx=Math.max(...p),pi=p.indexOf(mx),pickN=['主胜','平','客胜'][pi];
  const alts=[[p[0],'主胜'],[p[1],'平'],[p[2],'客胜']].filter(x=>x[1]!==pickN).sort((a,b)=>b[0]-a[0]);
  const bestIn=res=>{let b=[0,'0:0'];for(let i=0;i<KM;i++)for(let j=0;j<KM;j++){const rr=i>j?'主胜':(i===j?'平':'客胜');if(rr===res&&m[i][j]>b[0])b=[m[i][j],i+':'+j];}return b;};
+ let g2=0,g3=0,g4=0,best4=[0,'0:0'];
+ for(let i=0;i<KM;i++)for(let j=0;j<KM;j++){const t=i+j,v=m[i][j];
+   if(t===2)g2+=v;else if(t===3)g3+=v;else if(t>=4){g4+=v;if(v>best4[0])best4=[v,i+':'+j];}}
  const risk=upsetRisk(mx);
  return {p,lh,la,pick:pickN,maxP:mx,tier:tier1x2(mx),risk,defend:(risk==='高'||risk==='极高'),
   alt1:alts[0],alt1s:bestIn(alts[0][1]),alt2:alts[1],alt2s:bestIn(alts[1][1]),
+  g2,g3,g4,big4:best4,
   top3:flat.slice(0,3),p3:flat.slice(0,3).reduce((a,b)=>a+b[0],0),scoreTier:tierScore(flat.slice(0,3).reduce((a,b)=>a+b[0],0)),
   tg,peak:tg.indexOf(Math.max(...tg)),tgP:Math.max(...tg),
   hf,ord,hfFirst:ord[0],hfP:hf[ord[0]],hf3:hf[ord[0]]+hf[ord[1]]+hf[ord[2]],hfTier:tierHtft(hf[ord[0]]),
@@ -203,9 +207,16 @@ function render(r,meta){
   <div class="big">${SERIES[r.hfFirst]} <span style="font-size:20px">${pct(r.hfP)}</span></div>
   <div class="bignum">三选合计 ${pct(r.hf3)}（历史 top1 约 35%，看三选）</div>
   <div class="grid9">${r.hf.map((v,i)=>`<div class="${i===r.hfFirst?'on':''}"><div class="v">${pct(v)}</div><div class="k">${SERIES[i]}</div></div>`).join('')}</div></div>`;
+  const mxg=Math.max(r.g2,r.g3,r.g4);
   h+=`<div class="card"><div class="title"><span>比分</span><span class="badge ${TC[r.scoreTier]}">前三 ${pct(r.p3)}</span></div>
+  <div class="three">
+    <div class="${r.g2===mxg?'on':''}"><div class="v">${pct(r.g2)}</div><div class="k">2 球</div></div>
+    <div class="${r.g3===mxg?'on':''}"><div class="v">${pct(r.g3)}</div><div class="k">3 球</div></div>
+    <div class="${r.g4===mxg?'on':''}"><div class="v">${pct(r.g4)}</div><div class="k">4+ 球</div></div>
+  </div>
+  <div class="tip" style="margin:10px 0 2px">单个比分（概率都很低）</div>
   ${r.top3.map(x=>`<div class="sc"><span>${x[1]}</span><span class="p">${pct(x[0])}</span></div>`).join('')}
-  <div class="tip">前五：${r.top5.map(x=>x[1]).join(' · ')}｜历史 top1 约 12%</div></div>`;
+  <div class="tip">4+ 球里最可能：${r.big4[1]} ${pct(r.big4[0])}｜首选比分只有 ${pct(r.top3[0][0])}</div></div>`;
   h+=`<div class="card"><div class="title"><span>总进球</span><span class="badge b-low">峰值 ${r.peak} 球</span></div>
   <div class="three">${r.tg.map((v,i)=>`<div class="${i===r.peak?'on':''}"><div class="v">${pct(v)}</div><div class="k">${i===7?'7+':i}</div></div>`).join('')}</div>
   <div class="tip">λ主 ${r.lh.toFixed(2)}　λ客 ${r.la.toFixed(2)}　期望 ${(r.lh+r.la).toFixed(2)} 球</div></div>`;

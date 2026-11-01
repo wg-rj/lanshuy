@@ -300,7 +300,8 @@ function renderOdds(data){
     `<div class="sc" onclick="pickOdds(${i})"><span>${m.num} ${m.lg}<br><b>${m.h} vs ${m.a}</b></span>
      <span class="p">${m.hh}/${m.hd}/${m.ha}</span></div>`).join('');
   const t=new Date(data.t);
-  tm.textContent=`${sell.length} 场在售 · 更新于 ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+  const upTxt=data.up?(' · 官网更新 '+String(data.up).slice(11,16)):'';
+  tm.textContent=`${sell.length} 场在售 · 拉取于 ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}${upTxt}`;
 }
 async function pullOdds(){
   const btn=document.getElementById('pullBtn'), box=document.getElementById('oddsList');
@@ -316,7 +317,7 @@ async function pullOdds(){
           date:m.matchDate,time:m.matchTime,st:m.matchStatus,
           hh:hd.h,hd:hd.d,ha:hd.a,line:hh.goalLine,ch:hh.h,cd:hh.d,ca:hh.a});
       }
-    const data={t:Date.now(),list};
+    const data={t:Date.now(),up:((d.value||{}).lastUpdateTime||""),list};
     localStorage.setItem(ODDS_KEY,JSON.stringify(data));
     renderOdds(data);
     btn.textContent='刷新';
@@ -341,7 +342,7 @@ window.pickOdds=function(i){
 document.getElementById('pullBtn').onclick=pullOdds;
 (function(){
   const c=oddsCache();
-  if(c) renderOdds(c);
+  if(c){ renderOdds(c); setTimeout(()=>{ if(navigator.onLine!==false) pullOdds(); },600); }
   else pullOdds();
 })();
 renderLedger();renderCalib();};

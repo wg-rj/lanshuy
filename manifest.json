@@ -22,5 +22,10 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "id": "/lanshuy/",
+  "display_override": [
+    "standalone",
+    "fullscreen"
   ]
 }

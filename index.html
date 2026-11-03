@@ -68,9 +68,9 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
 .mini{border:1px solid #0E6B66;background:#fff;color:#0E6B66;border-radius:8px;padding:5px 12px;font-size:12px;font-family:inherit;font-weight:600}
 .mini:disabled{opacity:.5}
 #oddsList{max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-#oddsList .sc{font-size:13px;padding:9px 2px;cursor:pointer}
+#oddsList .sc{font-size:15.5px;padding:12px 2px;cursor:pointer;line-height:1.5}
 #oddsList .sc:active{background:#EEF4F8}
-#oddsList .p{font-size:13px;white-space:nowrap}
+#oddsList .p{font-size:14.5px;white-space:nowrap}
 .del{color:#C0504D;font-size:12px;border:0;background:none;font-family:inherit;padding:0}
 
 /* ===== 移动端字号放大（覆盖前面） ===== */
@@ -102,6 +102,23 @@ label{font-size:13.5px}
   display:flex;justify-content:space-between;align-items:baseline}
 .combo span{font-size:14px;opacity:.85}
 .combo b{font-size:22px;font-weight:700}
+
+/* ===== v3 调整 ===== */
+body{padding-bottom:16px}
+#oddsList .nm{font-size:13.5px;color:#8a95a3}
+#oddsList .tm{font-size:16px;font-weight:700}
+.gl{background:#F5F8FC;border-radius:9px;padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:baseline}
+.gl .k{font-size:14px;color:#6b7785}
+.gl .v{font-size:17px;font-weight:700;color:#0B1F33}
+.gl .v em{font-style:normal;font-size:15px;color:#0E6B66;margin-left:6px}
+
+/* ===== v4 近期状态 ===== */
+.rs{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px dashed #e3e9f1}
+.rs:last-child{border-bottom:0}
+.rs .who{font-size:15px;font-weight:600;color:#0B1F33}
+.rs .rec{font-size:14px;color:#6b7785;margin-left:8px}
+.rs .num{font-size:15px;font-weight:700;color:#0E6B66}
+.mini-tag{display:inline-block;font-size:12.5px;padding:2px 8px;border-radius:20px;background:#EEF4F8;color:#0B1F33;margin-left:6px}
 </style>
 </head>
 <body>
@@ -112,18 +129,21 @@ label{font-size:13.5px}
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
   <button data-t="ledger">台账</button>
-  <button data-t="calib">校准</button>
   <button data-t="rec">推荐</button>
 
 </div>
 
 <div class="page on" id="pred">
   <div class="card">
-    <div class="title"><span>官网在售</span><button class="mini" id="pullBtn">拉取官网</button></div>
+    <div class="title"><span>官网在售</span><span><button class="mini" id="expSnap" style="margin-right:6px">导出</button><button class="mini" id="pullBtn">拉取</button></span></div>
     <div id="oddsList" class="tip">点右上角「拉取官网」，一次拿到欧赔（多书商均值）、Coral、让球和近况</div>
     <div class="tip" id="oddsTime"></div>
   </div>
-  <div class="card">
+    <div class="card" id="recentCard" style="display:none">
+    <div class="title"><span>近期状态</span><span class="tip" id="recentTip"></span></div>
+    <div id="recentBody"></div>
+  </div>
+<div class="card">
     <div class="row">
       <div><label>主队</label><input id="h" placeholder="主队"></div>
       <div><label>客队</label><input id="a" placeholder="客队"></div>
@@ -161,19 +181,15 @@ label{font-size:13.5px}
 
 <div class="page" id="ledger">
   <div id="ledgerList"></div>
-</div>
-
-<div class="page" id="calib">
   <div class="card" id="calibBox"></div>
   <div class="card">
     <div class="title">数据</div>
     <div class="tip" id="storeInfo"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="mini" id="exp" style="flex:1">导出给电脑</button>
+      <button class="mini" id="imp" style="flex:1">导入/清空</button>
+    </div>
   </div>
-</div>
-
-<div class="foot">
-  <button id="exp">导出给电脑</button>
-  <button class="p" id="imp">导入/清空</button>
 </div>
 
 <script>
@@ -445,14 +461,141 @@ document.getElementById('leg3').onclick = () => {
   renderRec();
 };
 
+
+/* ============ 今日速览 ============ */
+function renderGlance() {
+  const card = document.getElementById('glanceCard');
+  const box = document.getElementById('glanceBody');
+  if (!card || !box) return;
+  const all = [];
+  for (const m of ODDS) {
+    if (m.st !== 'Selling' || !m.eu) continue;
+    try { all.push({ m: m, r: predict(m.eu) }); } catch (e) {}
+  }
+  if (!all.length) { card.style.display = 'none'; return; }
+  const ok = all.filter(x => x.r.maxP >= 0.60).sort((a, b) => b.r.maxP - a.r.maxP);
+  const top = ok.slice(0, 3);
+  let h = '';
+  if (top.length) {
+    for (const x of top) {
+      h += '<div class="gl"><span class="k">' + x.m.h + ' vs ' + x.m.a + '</span>' +
+           '<span class="v">' + x.r.pick + '<em>' + (x.r.maxP * 100).toFixed(1) + '%</em></span></div>';
+    }
+  } else {
+    h = '<div class="tip">今天没有把握度 ≥60% 的场次，建议只看不买。</div>';
+  }
+  const t = document.getElementById('glanceTip');
+  if (t) t.textContent = '共 ' + all.length + ' 场 · 达标 ' + ok.length + ' 场';
+  box.innerHTML = h;
+  card.style.display = '';
+}
+
+
+/* ============ 近期状态（交锋 + 近5场） ============ */
+function statRecent(list, teamIsHome) {
+  if (!list || !list.length) return null;
+  let w = 0, d = 0, l = 0, gf = 0, ga = 0, htHit = 0, n = 0;
+  for (const x of list) {
+    if (!x || !x.score) continue;
+    const home = (x.venue === '主');
+    const a = +x.score[0], b = +x.score[1];
+    if (!isFinite(a) || !isFinite(b)) continue;
+    const my = home ? a : b, opp = home ? b : a;
+    gf += my; ga += opp; n++;
+    if (x.ht && x.ht.length === 2) {
+      const h1 = home ? +x.ht[0] : +x.ht[1], a1 = home ? +x.ht[1] : +x.ht[0];
+      if (h1 + a1 > 0) htHit++;
+    }
+    if (x.result === '胜') w++; else if (x.result === '平') d++; else l++;
+  }
+  if (!n) return null;
+  return { n: n, w: w, d: d, l: l, gf: gf / n, ga: ga / n, tot: (gf + ga) / n, ht: htHit / n };
+}
+
+function statH2H(list, homeName) {
+  if (!list || !list.length) return null;
+  let w = 0, d = 0, l = 0, tot = 0, n = 0;
+  for (const x of list) {
+    if (!x || !x.score) continue;
+    const a = +x.score[0], b = +x.score[1];
+    if (!isFinite(a) || !isFinite(b)) continue;
+    const mine = (x.home === homeName);
+    const my = mine ? a : b, opp = mine ? b : a;
+    tot += a + b; n++;
+    if (my > opp) w++; else if (my === opp) d++; else l++;
+  }
+  if (!n) return null;
+  return { n: n, w: w, d: d, l: l, tot: tot / n };
+}
+
+function renderRecent(m) {
+  const card = document.getElementById('recentCard');
+  const box = document.getElementById('recentBody');
+  if (!card || !box) return;
+  if (!m || (!m.recent && !m.h2h)) { card.style.display = 'none'; return; }
+  const fh = statRecent((m.recent || {}).home, true);
+  const fa = statRecent((m.recent || {}).away, false);
+  const hh = statH2H(m.h2h, m.h);
+  let h = '';
+  const line = (name, s) => {
+    if (!s) return '<div class="rs"><span class="who">' + name + '</span><span class="rec">暂无数据</span></div>';
+    return '<div class="rs"><span><span class="who">' + name + '</span>' +
+      '<span class="rec">' + s.w + '胜' + s.d + '平' + s.l + '负</span></span>' +
+      '<span class="num">均' + s.tot.toFixed(1) + '球</span></div>' +
+      '<div class="tip">进 ' + s.gf.toFixed(1) + ' / 失 ' + s.ga.toFixed(1) +
+      '　上半场有进球 ' + (s.ht * 100).toFixed(0) + '%</div>';
+  };
+  h += line(m.h + '（近5场）', fh);
+  h += line(m.a + '（近5场）', fa);
+  if (hh) {
+    h += '<div class="rs" style="margin-top:6px"><span class="who">交锋</span>' +
+      '<span class="rec">' + hh.n + ' 次　' + m.h + ' ' + hh.w + '胜' + hh.d + '平' + hh.l + '负</span>' +
+      '<span class="num">均' + hh.tot.toFixed(1) + '球</span></div>';
+  }
+  box.innerHTML = h;
+  document.getElementById('recentTip').textContent = '近5场来自官网，不是体彩赛程';
+  card.style.display = '';
+}
+
+
+/* ============ 导出今日快照 ============ */
+function exportSnapshot() {
+  const c = oddsCache();
+  const list = (c && c.list) || ODDS || [];
+  const use = list.filter(m => m.raw && m.raw.home && m.raw.away);
+  if (!use.length) { alert('还没有数据。先点「拉取官网」。'); return; }
+  const now = new Date();
+  const p2 = n => String(n).padStart(2, '0');
+  const stamp = now.getFullYear() + '-' + p2(now.getMonth() + 1) + '-' + p2(now.getDate()) +
+                ' ' + p2(now.getHours()) + ':' + p2(now.getMinutes());
+  const payload = {
+    app: '澜枢', version: 1,
+    exportedAt: now.toISOString(),
+    snapshotAt: stamp,
+    matches: use.map(m => m.raw)
+  };
+  const text = JSON.stringify(payload, null, 1);
+  const name = '澜枢快照_' + stamp.replace(' ', '_').replace(':', '') + '.json';
+  try {
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    alert('已导出：' + name + '\n\n共 ' + use.length + ' 场。\n把这个文件发给我就行。');
+  } catch (e) {
+    alert('导出失败：' + e.message);
+  }
+}
+
 /* ============ 事件 ============ */
 document.querySelectorAll('.tabs button').forEach(b=>{
   b.onclick=()=>{
     document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));
     document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');document.getElementById(b.dataset.t).classList.add('on');
-    if(b.dataset.t==='ledger')renderLedger();
-    if(b.dataset.t==='calib')renderCalib();
+    if(b.dataset.t==='ledger'){renderLedger();renderCalib();}
     if(b.dataset.t==='rec')renderRec();
   };
 });
@@ -506,6 +649,7 @@ function renderOdds(data){
   const sell=(data.list||[]).filter(m=>m.st==='Selling');
   ODDS=sell;
   if(!sell.length){box.textContent='当前没有在售场次';tm.textContent='';return;}
+  renderGlance();
   box.innerHTML=sell.map((m,i)=>
     `<div class="sc" onclick="pickOdds(${i})"><span>${m.num} ${m.lg}<br><b>${m.h} vs ${m.a}</b></span>
      <span class="p">欧 ${m.euTxt||'—'}</span></div>`).join('');
@@ -540,12 +684,20 @@ async function pullOdds(force){
           euTxt: eu? eu.map(x=>x.toFixed(2)).join('/') : '',
           jcTxt: hd.h? [hd.h,hd.d,hd.a].join('/') : '',
           coralTxt: co? co.join('/') : '',
-          line:hh.goalLine, ch:hh.h, cd:hh.d, ca:hh.a
+          line:hh.goalLine, ch:hh.h, cd:hh.d, ca:hh.a,
+          recent:m.recent||null, h2h:m.h2h||null,
+          raw:{ no:m.matchNumStr, league:m.leagueAbbName,
+                home:m.homeTeamAbbName, away:m.awayTeamAbbName,
+                businessDate:m.matchDate, matchTime:m.matchTime, matchStatus:m.matchStatus,
+                coral:(m.coral||null), marketProb:(m.marketProb||null), coralAt:(m.coralAt||null),
+                had:(m.had||null), hhad:(m.hhad||null),
+                recent:(m.recent||null), h2h:(m.h2h||null) }
         });
       }
     const data={t:Date.now(),up:((d.value||{}).lastUpdateTime||""),list};
     localStorage.setItem(ODDS_KEY,JSON.stringify(data));
     renderOdds(data);
+    renderGlance();
     btn.textContent='刷新';
   }catch(e){
     if(c){ renderOdds(c); box.textContent='联网失败，显示上次数据：'+e.message; }
@@ -568,11 +720,13 @@ window.pickOdds=function(i){
     document.getElementById('od').value=(+m.eu[1]).toFixed(2);
     document.getElementById('oa').value=(+m.eu[2]).toFixed(2);
   }
-  const go=document.getElementById('go');
-  (go||document.getElementById('oh')).scrollIntoView({behavior:'smooth',block:'center'});
+  renderRecent(m);
+  const rc=document.getElementById('recentCard');
+  (rc && rc.style.display!=='none' ? rc : document.getElementById('go')).scrollIntoView({behavior:'smooth',block:'start'});
 };
 
 document.getElementById('pullBtn').onclick=function(){ pullOdds(true); };
+document.getElementById('expSnap').onclick=exportSnapshot;
 (function(){
   const c=oddsCache();
   if(c) renderOdds(c);
@@ -587,4 +741,8 @@ if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
 }
 </script>
 </body>
-</html>
+</html>  <div class="card" id="glanceCard" style="display:none">
+    <div class="title"><span>今日速览</span><span class="tip" id="glanceTip"></span></div>
+    <div id="glanceBody"></div>
+  </div>
+

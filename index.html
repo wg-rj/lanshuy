@@ -87,8 +87,8 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
 
 <div class="page on" id="pred">
   <div class="card">
-    <div class="title"><span>体彩在售</span><button class="mini" id="pullBtn">拉取官网</button></div>
-    <div id="oddsList" class="tip">点右上角「拉取官网」，直接从体彩官网取今天的场次和竞彩赔率</div>
+    <div class="title"><span>官网在售</span><button class="mini" id="pullBtn">拉取官网</button></div>
+    <div id="oddsList" class="tip">点右上角「拉取官网」，一次拿到欧赔（多书商均值）、Coral、让球和近况</div>
     <div class="tip" id="oddsTime"></div>
   </div>
   <div class="card">
@@ -361,11 +361,21 @@ document.getElementById('imp').onclick=()=>{
     add.forEach(x=>{if(!ids.has(x.id))cur.push(x)});save(cur);renderLedger();renderCalib();alert('已导入');}
   catch(e){alert('JSON 格式不对');}
 };
-/* ============ 官网赔率 ============ */
-const API='https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry?poolCode=hhad,had&channel=c';
-const ODDS_KEY='jc_odds_v1';
+/* ============ 官网在售（云函数，含欧赔/Coral/让球） ============ */
+const API='https://jcdata-pxigzkgjcb.cn-hangzhou.fcapp.run?t=1';
+const ODDS_KEY='jc_odds_v2';
+const TTL_NORMAL=12*3600*1000;   // 平时 12 小时
+const TTL_CLOSE=30*60*1000;      // 停售前一小时 30 分钟
 let ODDS=[];
+
+function inCloseWin(){
+  const d=new Date(), wd=d.getDay();
+  return d.getHours()===((wd===0||wd===6)?22:21);
+}
+function ttlNow(){ return inCloseWin()?TTL_CLOSE:TTL_NORMAL; }
 function oddsCache(){try{return JSON.parse(localStorage.getItem(ODDS_KEY)||'null')}catch(e){return null}}
+function cacheFresh(c){ return !!(c && c.t && (Date.now()-c.t)<ttlNow()); }
+
 function renderOdds(data){
   const box=document.getElementById('oddsList'), tm=document.getElementById('oddsTime');
   const sell=(data.list||[]).filter(m=>m.st==='Selling');
@@ -373,13 +383,17 @@ function renderOdds(data){
   if(!sell.length){box.textContent='当前没有在售场次';tm.textContent='';return;}
   box.innerHTML=sell.map((m,i)=>
     `<div class="sc" onclick="pickOdds(${i})"><span>${m.num} ${m.lg}<br><b>${m.h} vs ${m.a}</b></span>
-     <span class="p">${m.hh}/${m.hd}/${m.ha}</span></div>`).join('');
+     <span class="p">欧 ${m.euTxt||'—'}</span></div>`).join('');
   const t=new Date(data.t);
   const upTxt=data.up?(' · 官网更新 '+String(data.up).slice(11,16)):'';
-  tm.textContent=`${sell.length} 场在售 · 拉取于 ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}${upTxt}`;
+  const gate=inCloseWin()?'停售前 30 分钟':'平时 12 小时';
+  tm.textContent=`${sell.length} 场在售 · 拉取于 ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}${upTxt} · ${gate}`;
 }
-async function pullOdds(){
+
+async function pullOdds(force){
   const btn=document.getElementById('pullBtn'), box=document.getElementById('oddsList');
+  const c=oddsCache();
+  if(!force && cacheFresh(c)){ renderOdds(c); return; }   // 缓存还新 → 不联网
   btn.disabled=true; btn.textContent='拉取中…';
   try{
     const r=await fetch(API,{cache:'no-store'});
@@ -388,20 +402,34 @@ async function pullOdds(){
     for(const day of ((d.value||{}).matchInfoList||[]))
       for(const m of (day.subMatchList||[])){
         const hd=m.had||{}, hh=m.hhad||{};
-        list.push({num:m.matchNumStr,lg:m.leagueAbbName,h:m.homeTeamAbbName,a:m.awayTeamAbbName,
-          date:m.matchDate,time:m.matchTime,st:m.matchStatus,
-          hh:hd.h,hd:hd.d,ha:hd.a,line:hh.goalLine,ch:hh.h,cd:hh.d,ca:hh.a});
+        const mp=(m.marketProb||{}).live||(m.marketProb||{}).open||null;
+        const co=(m.coral||{}).live||null;
+        let eu=null;
+        if(mp && mp.length===3) eu=mp.map(x=>1/x);      // 去水概率反推等效欧赔
+        else if(co) eu=co;
+        list.push({
+          num:m.matchNumStr, lg:m.leagueAbbName,
+          h:m.homeTeamAbbName, a:m.awayTeamAbbName,
+          date:m.matchDate, time:m.matchTime, st:m.matchStatus,
+          eu:eu,
+          euTxt: eu? eu.map(x=>x.toFixed(2)).join('/') : '',
+          jcTxt: hd.h? [hd.h,hd.d,hd.a].join('/') : '',
+          coralTxt: co? co.join('/') : '',
+          line:hh.goalLine, ch:hh.h, cd:hh.d, ca:hh.a
+        });
       }
     const data={t:Date.now(),up:((d.value||{}).lastUpdateTime||""),list};
     localStorage.setItem(ODDS_KEY,JSON.stringify(data));
     renderOdds(data);
     btn.textContent='刷新';
   }catch(e){
-    box.textContent='拉取失败：'+e.message+'　（不影响手动填）';
+    if(c){ renderOdds(c); box.textContent='联网失败，显示上次数据：'+e.message; }
+    else box.textContent='拉取失败：'+e.message+'　（可手动填）';
     btn.textContent='重试';
   }
   btn.disabled=false;
 }
+
 window.pickOdds=function(i){
   const m=ODDS[i]; if(!m)return;
   document.getElementById('h').value=m.h||'';
@@ -410,17 +438,21 @@ window.pickOdds=function(i){
   document.getElementById('ch').value=m.ch||'';
   document.getElementById('cd').value=m.cd||'';
   document.getElementById('ca').value=m.ca||'';
-  const oh=document.getElementById('oh');
-  oh.scrollIntoView({behavior:'smooth',block:'center'});
-  setTimeout(()=>oh.focus(),200);
+  if(m.eu){
+    document.getElementById('oh').value=(+m.eu[0]).toFixed(2);
+    document.getElementById('od').value=(+m.eu[1]).toFixed(2);
+    document.getElementById('oa').value=(+m.eu[2]).toFixed(2);
+  }
+  const go=document.getElementById('go');
+  (go||document.getElementById('oh')).scrollIntoView({behavior:'smooth',block:'center'});
 };
-document.getElementById('pullBtn').onclick=pullOdds;
+
+document.getElementById('pullBtn').onclick=function(){ pullOdds(true); };
 (function(){
   const c=oddsCache();
-  if(c){ renderOdds(c); setTimeout(()=>{ if(navigator.onLine!==false) pullOdds(); },600); }
-  else pullOdds();
+  if(c) renderOdds(c);
+  if(!cacheFresh(c)) pullOdds(false);
 })();
-renderLedger();renderCalib();
 renderLedger();renderCalib();
 </script>
 

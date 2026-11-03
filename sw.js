@@ -1,5 +1,5 @@
 /* 澜枢 · 离线缓存（v2：页面走网络优先，更新立刻生效） */
-const CACHE = 'jc-pocket-v2';
+const CACHE = 'jc-pocket-v3';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -20,9 +20,10 @@ self.addEventListener('fetch', e => {
   const isDoc = e.request.mode === 'navigate' || url.pathname.endsWith('index.html');
 
   if (isDoc) {
-    // 页面：网络优先，拿不到再用缓存（保证一更新就能看到新版）
+    // 页面：网络优先，且绕过 HTTP 缓存（GitHub Pages 的 max-age=600 会导致
+    // 刚传的新版在手机上十分钟内看不到）。拿不到再用 SW 缓存兜底。
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: 'no-store' }).then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
         return res;

@@ -72,6 +72,36 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
 #oddsList .sc:active{background:#EEF4F8}
 #oddsList .p{font-size:13px;white-space:nowrap}
 .del{color:#C0504D;font-size:12px;border:0;background:none;font-family:inherit;padding:0}
+
+/* ===== 移动端字号放大（覆盖前面） ===== */
+header .sub{font-size:13px}
+.tabs button{font-size:15px;padding:13px 0}
+label{font-size:13.5px}
+.title{font-size:17px}
+.badge{font-size:12.5px;padding:4px 11px}
+.bignum{font-size:14px}
+.big{font-size:30px}
+.three .v{font-size:20px}
+.three .k{font-size:12.5px}
+.grid9 .v{font-size:16px}
+.grid9 .k{font-size:12.5px}
+.tip{font-size:13.5px;line-height:1.75}
+.sc{font-size:15px;padding:11px 2px}
+.mini{font-size:13px;padding:6px 14px}
+/* ===== 推荐页 ===== */
+.seg{display:flex;gap:8px;margin-bottom:4px}
+.seg button{flex:1;border:1px solid #0E6B66;background:#fff;color:#0E6B66;border-radius:9px;
+  padding:11px 0;font-size:15px;font-weight:600;font-family:inherit}
+.seg button.on{background:#0E6B66;color:#fff}
+.rc{background:#F5F8FC;border-radius:9px;padding:10px 12px;margin-top:8px}
+.rc .nm{font-size:14px;color:#6b7785}
+.rc .pk{font-size:17px;font-weight:700;color:#0B1F33;display:flex;justify-content:space-between;align-items:baseline}
+.rc .pk b{font-size:16px;color:#0E6B66}
+.rc .dt{font-size:13px;color:#6b7785;margin-top:3px}
+.combo{background:#0B1F33;color:#fff;border-radius:9px;padding:12px 14px;margin-top:10px;
+  display:flex;justify-content:space-between;align-items:baseline}
+.combo span{font-size:14px;opacity:.85}
+.combo b{font-size:22px;font-weight:700}
 </style>
 </head>
 <body>
@@ -83,6 +113,8 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
   <button class="on" data-t="pred">预测</button>
   <button data-t="ledger">台账</button>
   <button data-t="calib">校准</button>
+  <button data-t="rec">推荐</button>
+
 </div>
 
 <div class="page on" id="pred">
@@ -112,6 +144,19 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
     <button class="go" id="calc">出结果</button>
   </div>
   <div id="out"></div>
+</div>
+
+
+<div class="page" id="rec">
+  <div class="card">
+    <div class="title"><span>今日推荐</span><span class="tip" id="recCount"></span></div>
+    <div class="seg">
+      <button id="leg2" class="on">2 串 1</button>
+      <button id="leg3">3 串 1</button>
+    </div>
+    <div class="tip" style="margin-top:8px">只挑「把握度够高」的场次自动组合。胜平负看 60%、半全场看 40%、比分看前三合计 33%。</div>
+  </div>
+  <div id="recBody"></div>
 </div>
 
 <div class="page" id="ledger">
@@ -165,13 +210,15 @@ function htftDist(lh,la){const a=poisArr(S_HT*lh),b=poisArr(S_HT*la),c=poisArr((
   for(let k=0;k<KM;k++)for(let l=0;l<KM;l++){const w2=c[k]*d[l];if(w2<1e-12)continue;
    const s2=Math.sign((i+k)-(j+l));out[(1-s1)*3+(1-s2)]+=w1*w2;}}
  const s=out.reduce((x,y)=>x+y,0);return out.map(v=>v/s);}
-function tier1x2(p){return p>=0.65?'高':p>=0.55?'中':p>=0.45?'低':'很低';}
+function tier1x2(p){return p>=0.68?'高':p>=0.58?'中':p>=0.46?'低':'很低';}
 function tierHtft(p){return p>=0.40?'高':p>=0.30?'中':p>=0.20?'低':'很低';}
 function tierScore(p){return p>=0.33?'高':p>=0.28?'中':p>=0.23?'低':'很低';}
 function upsetRisk(p){return p>=0.75?'低':p>=0.65?'较低':p>=0.55?'中':p>=0.45?'高':'极高';}
 
-function predict(eu){const inv=eu.map(x=>1/x),s=inv.reduce((a,b)=>a+b,0),p=inv.map(x=>x/s);
- const L=fitLambda(p[0],p[1],p[2]),lh=L[0],la=L[1],m=scoreMatrix(lh,la);
+function predict(eu){const inv=eu.map(x=>1/x),s=inv.reduce((a,b)=>a+b,0),p0=inv.map(x=>x/s);
+ /* 温度锐化 T=0.90：只影响显示的胜平负概率，比分/半全场矩阵仍用原始去水值 */
+ const _s1=p0.map(x=>Math.pow(x,1/0.90)),_s2=_s1.reduce((a,b)=>a+b,0),p=_s1.map(x=>x/_s2);
+ const L=fitLambda(p0[0],p0[1],p0[2]),lh=L[0],la=L[1],m=scoreMatrix(lh,la);
  const flat=[];for(let i=0;i<KM;i++)for(let j=0;j<KM;j++)flat.push([m[i][j],i+':'+j]);
  flat.sort((x,y)=>y[0]-x[0]);
  const tg=new Array(8).fill(0);
@@ -321,6 +368,83 @@ function renderCalib(){
   box.innerHTML=h;
 }
 
+
+/* ============ 今日推荐（2串1 / 3串1） ============ */
+let REC_LEGS = 2;
+
+function recPredictions() {
+  const out = [];
+  for (const m of ODDS) {
+    if (m.st !== 'Selling' || !m.eu) continue;
+    try { out.push({ m: m, r: predict(m.eu) }); } catch (e) {}
+  }
+  return out;
+}
+
+function renderRec() {
+  const box = document.getElementById('recBody');
+  if (!box) return;
+  const all = recPredictions();
+  document.getElementById('recCount').textContent = all.length ? (all.length + ' 场可算') : '';
+  if (!all.length) {
+    box.innerHTML = '<div class="card"><div class="tip">还没有比赛数据。回「预测」页点「拉取官网」。</div></div>';
+    return;
+  }
+  const POOLS = [
+    { name: '胜平负', thr: 0.60, tag: '≥60%',
+      pick: x => ({ txt: x.r.pick, p: x.r.maxP, detail: '' }) },
+    { name: '半全场', thr: 0.40, tag: '≥40%',
+      pick: x => ({ txt: SERIES[x.r.hfFirst], p: x.r.hfP, detail: '次选 ' + SERIES[x.r.ord[1]] + ' ' + (x.r.hf[x.r.ord[1]] * 100).toFixed(0) + '%' }) },
+    { name: '比分', thr: 0.28, tag: '前三合计≥28%',
+      pick: x => ({ txt: x.r.top3[0][1], p: x.r.top3[0][0], detail: '前三合计 ' + (x.r.p3 * 100).toFixed(0) + '%　前五 ' + x.r.top5.map(y => y[1]).join(' / ') }) }
+  ];
+  let h = '';
+  for (const pool of POOLS) {
+    const list = all.map(x => { const pk = pool.pick(x); return { m: x.m, r: x.r, txt: pk.txt, p: pk.p, detail: pk.detail }; })
+      .filter(x => {
+        if (pool.name === '比分') return x.r.p3 >= pool.thr;
+        return x.p >= pool.thr;
+      })
+      .sort((a, b) => b.p - a.p);
+    h += '<div class="card"><div class="title"><span>' + pool.name + '</span>' +
+         '<span class="badge ' + (pool.name === '胜平负' ? 'b-high' : pool.name === '半全场' ? 'b-mid' : 'b-low') + '">' + pool.tag + '</span></div>';
+    if (!list.length) {
+      h += '<div class="tip">今天没有达到门槛的场次。</div></div>';
+      continue;
+    }
+    const use = list.slice(0, REC_LEGS);
+    let comb = 1;
+    use.forEach((x, i) => {
+      comb *= x.p;
+      h += '<div class="rc"><div class="nm">' + x.m.num + ' ' + x.m.lg + '　' + x.m.h + ' vs ' + x.m.a + '</div>' +
+           '<div class="pk"><span>' + x.txt + '</span><b>' + (x.p * 100).toFixed(1) + '%</b></div>' +
+           (x.detail ? '<div class="dt">' + x.detail + '</div>' : '') + '</div>';
+    });
+    h += '<div class="combo"><span>' + REC_LEGS + ' 串 1 组合概率</span><b>' + (comb * 100).toFixed(1) + '%</b></div>';
+    if (pool.name === '比分') {
+      h += '<div class="tip" style="color:#C0504D">⚠ 比分串关风险极高：单场首选只有约 10%，两场一起中的概率不到 2%。建议只当参考，别真串。</div>';
+    }
+    if (list.length > REC_LEGS) {
+      h += '<div class="tip">其余达标：' + list.slice(REC_LEGS).map(x => x.m.h + '(' + (x.p * 100).toFixed(0) + '%)').join('、') + '</div>';
+    }
+    h += '</div>';
+  }
+  box.innerHTML = h;
+}
+
+document.getElementById('leg2').onclick = () => {
+  REC_LEGS = 2;
+  document.getElementById('leg2').classList.add('on');
+  document.getElementById('leg3').classList.remove('on');
+  renderRec();
+};
+document.getElementById('leg3').onclick = () => {
+  REC_LEGS = 3;
+  document.getElementById('leg3').classList.add('on');
+  document.getElementById('leg2').classList.remove('on');
+  renderRec();
+};
+
 /* ============ 事件 ============ */
 document.querySelectorAll('.tabs button').forEach(b=>{
   b.onclick=()=>{
@@ -329,6 +453,7 @@ document.querySelectorAll('.tabs button').forEach(b=>{
     b.classList.add('on');document.getElementById(b.dataset.t).classList.add('on');
     if(b.dataset.t==='ledger')renderLedger();
     if(b.dataset.t==='calib')renderCalib();
+    if(b.dataset.t==='rec')renderRec();
   };
 });
 document.getElementById('calc').onclick=()=>{

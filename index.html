@@ -959,6 +959,39 @@ function renderRecent(m) {
     }
   } catch (e) {}
 
+
+  // 总进球档位（比比分更有区分度）
+  try {
+    const mpG = (m.raw || {}).marketProb && ((m.raw.marketProb).live || (m.raw.marketProb).open);
+    if (mpG) {
+      const LG = fitLambda(mpG[0], mpG[1], mpG[2]);
+      const GG = scoreMatrix(LG[0], LG[1]);
+      const tg = new Array(8).fill(0);
+      for (let a = 0; a < GG.length; a++) {
+        for (let b = 0; b < GG[a].length; b++) {
+          tg[Math.min(a + b, 7)] += GG[a][b];
+        }
+      }
+      const peak = tg.indexOf(Math.max.apply(null, tg));
+      const low = tg[0] + tg[1];
+      const mid = tg[2] + tg[3];
+      const high = tg.slice(4).reduce((x, y) => x + y, 0);
+      const cell = (v, lab, hi) => '<div><div class="v"' + (hi ? ' style="color:' + hi + '"' : '') + '>' +
+        Math.round(v * 100) + '%</div><div class="k">' + lab + '</div></div>';
+      h += '<div class="tip" style="margin-top:12px;border-top:1px solid #eef2f7;padding-top:10px">' +
+           '<b style="color:#0B1F33">总进球</b>　<span style="color:#0E6B66;font-weight:700">' +
+           (peak === 7 ? '7+ 球' : peak + ' 球') + ' 最可能</span>' +
+           '（' + Math.round(tg[peak] * 100) + '%）</div>';
+      h += '<div class="three" style="margin-top:8px">' +
+           cell(low, '0-1 球', '') +
+           cell(mid, '2-3 球', '#2E7D32') +
+           cell(high, '4+ 球', high >= 0.45 ? '#C0504D' : '') +
+           '</div>';
+      h += '<div class="tip" style="margin-top:8px">比「哪个比分」有用：比分单点最高也就 13%，' +
+           '但「2-3 球还是 4+ 球」这个判断能到六成</div>';
+    }
+  } catch (e) {}
+
   box.innerHTML = h;
   document.getElementById('recentTip').textContent = '近5场来自官网，不是体彩赛程';
   card.style.display = '';

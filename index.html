@@ -302,7 +302,7 @@ input{font-size:18px;padding:15px 13px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用</div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v24</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -717,6 +717,55 @@ document.getElementById('leg3').onclick = () => {
   renderRec();
 };
 
+
+
+/* ============ 启动自检 / 报错面板 ============ */
+(function(){
+  function panel(title, msg, color){
+    var id='__errpanel';
+    var box=document.getElementById(id);
+    if(!box){
+      box=document.createElement('div');
+      box.id=id;
+      box.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99999;padding:12px 14px;'+
+        'font:13px/1.6 -apple-system,sans-serif;white-space:pre-wrap;word-break:break-all;'+
+        'box-shadow:0 2px 12px rgba(0,0,0,.25)';
+      document.body.appendChild(box);
+    }
+    box.style.background=color||'#B03A2E';
+    box.style.color='#fff';
+    box.textContent=title+'\n'+msg;
+    box.onclick=function(){ box.style.display='none'; };
+  }
+  window.__panel=panel;
+  window.addEventListener('error', function(e){
+    var t=e.target||{};
+    if(t && t.tagName && t.tagName!=='SCRIPT'){
+      panel('资源加载失败', (t.src||t.href||'')+'\n检查网络后下拉刷新', '#B03A2E');
+      return;
+    }
+    panel('脚本出错', (e.message||'')+'\n'+(e.filename||'')+':'+(e.lineno||''), '#B03A2E');
+  }, true);
+  window.addEventListener('unhandledrejection', function(e){
+    panel('异步出错', String((e.reason&&e.reason.message)||e.reason||''), '#C79100');
+  });
+  // 3 秒自检：如果比赛列表还是空的，说明没启动成功
+  setTimeout(function(){
+    try{
+      var b=document.getElementById('oddsList');
+      var txt=b?b.textContent.replace(/\s/g,''):'';
+      if(!txt || txt.length<10){
+        panel('自检：页面没有渲染出内容',
+          'oddsList 为空。\n'+
+          'UA: '+navigator.userAgent.slice(0,120)+'\n'+
+          '在线: '+navigator.onLine+'\n'+
+          'URL: '+location.href, '#8E44AD');
+      }
+    }catch(err){
+      panel('自检本身出错', String(err&&err.message||err), '#8E44AD');
+    }
+  }, 3000);
+})();
 
 /* ============ 今日速览 ============ */
 function renderGlance() {
@@ -1723,8 +1772,13 @@ renderLedger();renderCalib();
 </script>
 
 <script>
-if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+/* v24：不再注册 Service Worker。
+   之前 SW 拦截页面导航，网络稍慢时导航一直挂着，TWA 就停在启动图。
+   已注册过的会在这里主动注销。离线数据本来就存在 localStorage，不依赖 SW。 */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then(rs => rs.forEach(r => r.unregister().catch(() => {})))
+    .catch(() => {});
 }
 </script>
 </body>

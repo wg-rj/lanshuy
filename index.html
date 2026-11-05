@@ -313,6 +313,10 @@ input{font-size:18px;padding:15px 13px}
 </div>
 
 <div class="page on" id="pred">
+  <div class="card" id="glanceCard" style="display:none">
+    <div class="title"><span>今日速览</span><span class="tip" id="glanceTip"></span></div>
+    <div id="glanceBody"></div>
+  </div>
   <div class="card">
     <div class="title"><span>官网在售</span><span><button class="mini" id="expSnap" style="margin-right:6px">导出</button><button class="mini" id="pullBtn">拉取</button></span></div>
     <div id="oddsList" class="tip">点右上角「拉取官网」，一次拿到欧赔（多书商均值）、Coral、让球和近况</div>
@@ -1724,8 +1728,4 @@ if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
 }
 </script>
 </body>
-</html>  <div class="card" id="glanceCard" style="display:none">
-    <div class="title"><span>今日速览</span><span class="tip" id="glanceTip"></span></div>
-    <div id="glanceBody"></div>
-  </div>
-
+</html>

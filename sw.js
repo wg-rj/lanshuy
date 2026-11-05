@@ -1,5 +1,5 @@
 /* 澜枢 · 离线缓存（v2：页面走网络优先，更新立刻生效） */
-const CACHE = 'jc-pocket-v3';
+const CACHE = 'jc-pocket-v4';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

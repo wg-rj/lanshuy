@@ -951,11 +951,15 @@ function renderRecent(m) {
       const gap = mx - mn;
       const lvl = (gap >= 10) ? '分歧大' : (gap >= 5 ? '分歧中' : '已收敛');
       h += '<div class="tip" style="margin-top:10px;border-top:1px solid #eef2f7;padding-top:10px">' +
-           '<b style="color:#0B1F33">凯利指数</b>　' +
+           '<b style="color:#0B1F33">凯利指数</b>' +
+           '<span style="font-size:11px;color:#C79100;border:1px solid #F0D9A0;' +
+           'background:#FFF8E8;border-radius:6px;padding:1px 6px;margin-left:6px">观察中</span>　' +
            '<span style="font-size:20px;font-weight:700;color:#0B1F33;letter-spacing:1px">' +
            kk.join(' / ') + '</span></div>';
       h += '<div class="tip">主 / 平 / 客　·　' + lvl + '（最高 ' + mx + '，最低 ' + mn +
            '，差 ' + gap + '）<br>三项都接近返回率 ≈ 已收敛；差距越大说明各家分歧越大</div>';
+      h += '<div class="tip" style="color:#8A95A3">观察中：已实测 26 场，「第二大项」「升降方向」都没有预测力，' +
+           '继续记录不用于决策</div>';
     }
   } catch (e) {}
 

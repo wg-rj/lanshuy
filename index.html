@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v37</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v38</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -2269,7 +2269,14 @@ function renderOdds(data){
   renderGlance();
   box.innerHTML=sell.map((m,i)=>
     `<div class="sc" onclick="pickOdds(${i})"><span>${m.num} ${m.lg}<br><b>${m.h} vs ${m.a}</b></span>
-     <span class="p">欧 ${m.euTxt||'—'}</span></div>`).join('');
+     <span class="p">${m.euSrc==='jc'?'竞':'欧'} ${m.euTxt||'—'}</span></div>`).join('');
+  const nJc = sell.filter(x=>x.euSrc==='jc').length;
+  if (nJc > 0) {
+    box.insertAdjacentHTML('beforeend',
+      '<div style="padding:10px 12px;background:#FFF8E8;border:1px solid #F0D9A0;border-radius:10px;font-size:13px;color:#8A6D1F;margin-bottom:8px">' +
+      '⚠ ' + nJc + ' 场没有欧赔，已用「竞彩去水」推算（标「竞」）。' +
+      '竞彩会压热门，猜大热时概率偏低约 2~4 个点</div>');
+  }
   const t=new Date(data.t);
   const upTxt=data.up?(' · 官网更新 '+String(data.up).slice(11,16)):'';
   const gate=inCloseWin()?'停售前 30 分钟':'平时 12 小时';
@@ -2290,14 +2297,19 @@ async function pullOdds(force){
         const hd=m.had||{}, hh=m.hhad||{};
         const mp=(m.marketProb||{}).live||(m.marketProb||{}).open||null;
         const co=(m.coral||{}).live||null;
+        let euSrc='';
         let eu=null;
-        if(mp && mp.length===3) eu=mp.map(x=>1/x);      // 去水概率反推等效欧赔
-        else if(co) eu=co;
+        if(mp && mp.length===3){ eu=mp.map(x=>1/x); euSrc='eu'; }      // 去水概率反推等效欧赔
+        else if(co){ eu=co; euSrc='coral'; }
+        else if(hd.h&&hd.d&&hd.a){                                      // 欧赔缺失 → 竞彩兜底
+          const S=1/hd.h+1/hd.d+1/hd.a;
+          eu=[hd.h*S,hd.d*S,hd.a*S]; euSrc='jc';
+        }
         list.push({
           num:m.matchNumStr, lg:m.leagueAbbName,
           h:m.homeTeamAbbName, a:m.awayTeamAbbName,
           date:m.matchDate, time:m.matchTime, st:m.matchStatus,
-          eu:eu,
+          eu:eu, euSrc:euSrc,
           euTxt: eu? eu.map(x=>x.toFixed(2)).join('/') : '',
           jcTxt: hd.h? [hd.h,hd.d,hd.a].join('/') : '',
           coralTxt: co? co.join('/') : '',

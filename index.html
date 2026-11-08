@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v38</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v39</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -912,6 +912,7 @@ function recPredictions() {
   const out = [];
   for (const m of ODDS) {
     if (m.st !== 'Selling' || !m.eu) continue;
+    if (isStale(m, 4)) continue;
     try { out.push({ m: m, r: predict(m.eu) }); } catch (e) {}
   }
   return out;
@@ -2258,18 +2259,52 @@ function inCloseWin(){
   return d.getHours()===((wd===0||wd===6)?22:21);
 }
 function ttlNow(){ return inCloseWin()?TTL_CLOSE:TTL_NORMAL; }
+
+/* 开球时间（北京时间）与是否已过期 */
+function kickoffMs(m) {
+  try {
+    const d = String(m.date || '').slice(0, 10);
+    let t = String(m.time || '00:00:00');
+    if (t.length === 5) t += ':00';
+    const dt = new Date(d + 'T' + t + '+08:00');
+    const v = dt.getTime();
+    return isFinite(v) ? v : null;
+  } catch (e) { return null; }
+}
+/* 超过开球 4 小时的场次一律视为过期 */
+function isStale(m, graceH) {
+  const k = kickoffMs(m);
+  if (k === null) return false;
+  return (Date.now() - k) > (graceH || 4) * 3600 * 1000;
+}
+
 function oddsCache(){try{return JSON.parse(LSget(ODDS_KEY)||'null')}catch(e){return null}}
 function cacheFresh(c){ return !!(c && c.t && (Date.now()-c.t)<ttlNow()); }
 
 function renderOdds(data){
   const box=document.getElementById('oddsList'), tm=document.getElementById('oddsTime');
-  const sell=(data.list||[]).filter(m=>m.st==='Selling');
+  const sell=(data.list||[]).filter(m=>m.st==='Selling' && !isStale(m,4));
   ODDS=sell;
   if(!sell.length){box.textContent='当前没有在售场次';tm.textContent='';return;}
   renderGlance();
   box.innerHTML=sell.map((m,i)=>
     `<div class="sc" onclick="pickOdds(${i})"><span>${m.num} ${m.lg}<br><b>${m.h} vs ${m.a}</b></span>
      <span class="p">${m.euSrc==='jc'?'竞':'欧'} ${m.euTxt||'—'}</span></div>`).join('');
+
+  // 数据新鲜度提示
+  try {
+    const ts = new Date(data.t || Date.now());
+    const hrs = (Date.now() - ts.getTime()) / 3600000;
+    if (hrs > 12) {
+      box.insertAdjacentHTML('afterbegin',
+        '<div style="padding:10px 12px;background:#FDECEA;border:1px solid #F5C6C0;border-radius:10px;' +
+        'font-size:13px;color:#8B2E23;margin-bottom:8px">' +
+        '⚠ 这份数据是 ' + ts.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) +
+        ' 拉的，已经 ' + hrs.toFixed(0) + ' 小时前。' +
+        '<b>点右上角「拉取」更新</b></div>');
+    }
+  } catch (e) {}
+
   const nJc = sell.filter(x=>x.euSrc==='jc').length;
   if (nJc > 0) {
     box.insertAdjacentHTML('beforeend',

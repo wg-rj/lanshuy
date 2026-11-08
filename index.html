@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v47</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v49</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -695,6 +695,96 @@ function cloudCard() {
   return h;
 }
 
+
+/* ============ EV 价值区 ============ */
+const EV_MIN = 1.05, EV_ODD_LO = 1.5, EV_ODD_HI = 2.5;
+
+function evZone(all) {
+  const out = [];
+  for (const x of all) {
+    const hd = (x.m.raw || {}).had || {};
+    const od = [parseFloat(hd.h), parseFloat(hd.d), parseFloat(hd.a)];
+    for (let i = 0; i < 3; i++) {
+      if (!isFinite(od[i]) || od[i] <= 1) continue;
+      const p = x.r.p[i];
+      const ev = p * od[i];
+      if (ev >= EV_MIN && od[i] >= EV_ODD_LO && od[i] <= EV_ODD_HI) {
+        out.push({ m: x.m, pick: ['主胜', '平', '客胜'][i], p: p, od: od[i], ev: ev });
+      }
+    }
+  }
+  out.sort((a, b) => b.ev - a.ev);
+  return out;
+}
+
+function evZoneCard(all) {
+  // 概率 → 历史实际命中（全库 7,152 场实测）
+  const LADDER = [
+    [0.75, 1.00, '78.3%', '≥75%'],
+    [0.65, 0.75, '69.8%', '65~75%'],
+    [0.55, 0.65, '58.4%', '55~65%'],
+    [0.45, 0.55, '49.3%', '45~55%'],
+    [0.00, 0.45, '41.4%', '<45%'],
+  ];
+  const bandOf = p => LADDER.find(x => p >= x[0] && p < x[1]) || LADDER[4];
+
+  const list = all.map(x => {
+    const i = x.r.p.indexOf(Math.max.apply(null, x.r.p));
+    const hd = (x.m.raw || {}).had || {};
+    const od = [parseFloat(hd.h), parseFloat(hd.d), parseFloat(hd.a)][i];
+    return { m: x.m, pick: ['主胜', '平', '客胜'][i], p: x.r.p[i],
+             od: isFinite(od) ? od : null,
+             ev: isFinite(od) ? x.r.p[i] * od : null };
+  }).sort((a, b) => b.p - a.p);
+
+  let h = '<div class="card"><div class="title"><span>概率参考</span>' +
+          '<span class="badge b-high">判断胜平负看这个</span></div>';
+
+  h += '<div class="tip" style="padding:10px 12px;background:#F1F7F3;border-radius:10px;' +
+       'border:1px solid #D5E8DA;line-height:1.8">' +
+       '<b style="color:#2E7D32">模型概率 → 历史实际命中</b>（全库 7,152 场实测）<br>' +
+       LADDER.map(x => '<span style="color:' +
+         (x[1] >= 0.65 ? '#2E7D32' : (x[1] >= 0.55 ? '#C79100' : '#94A1B2')) +
+         ';font-weight:' + (x[1] >= 0.65 ? '700' : '400') + '">' + x[3] + ' → ' +
+         x[2] + '</span>').join('　') +
+       '</div>';
+
+  h += '<div class="tip" style="margin-top:10px;color:#8A95A3">' +
+       '<b>期望（EV）和这个没关系</b>——EV 是「值不值」，概率是「准不准」，两者是反的：' +
+       '概率高的地方赔率被压低，EV 就低；EV 高的地方概率低（赔率 3.9 的冷门），命中率只有 29%。' +
+       '判断哪边赢，只看概率。</div>';
+
+  if (!list.length) {
+    h += '<div class="tip">本地还没有比赛数据，回「预测」页点「拉取官网」。</div></div>';
+    return h;
+  }
+
+  h += '<div class="strow" style="font-size:12px;color:#7A8797;padding:8px 2px 6px">' +
+       '<span style="flex:1">比赛</span><span style="width:56px;text-align:right">推荐</span>' +
+       '<span style="width:52px;text-align:right">概率</span>' +
+       '<span style="width:64px;text-align:right">历史命中</span>' +
+       '<span style="width:44px;text-align:right">赔率</span></div>';
+  for (const x of list.slice(0, 10)) {
+    const b = bandOf(x.p);
+    const col = b[1] >= 0.65 ? '#2E7D32' : (b[1] >= 0.55 ? '#C79100' : '#94A1B2');
+    h += '<div class="strow" style="padding:11px 2px">' +
+         '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a +
+         '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+         (x.m.lg || '') + ' ' + (x.m.num || '') + '</s></span>' +
+         '<span style="width:56px;text-align:right;font-weight:600">' + x.pick + '</span>' +
+         '<span style="width:52px;text-align:right;color:' + col + ';font-weight:700">' +
+         Math.round(x.p * 100) + '%</span>' +
+         '<span style="width:64px;text-align:right;color:' + col + '">' + b[2] + '</span>' +
+         '<span style="width:44px;text-align:right;color:#6B7785">' +
+         (x.od ? x.od.toFixed(2) : '—') + '</span></div>';
+  }
+  h += '<div class="tip" style="margin-top:10px;color:#8A95A3">' +
+       '只列概率最高的 10 场。「历史命中」是同一概率档在全库的实测值，' +
+       '不是这一场的保证——55% 的意思就是还有 45% 会错。</div></div>';
+  return h;
+}
+
+
 /* ============ v33 推荐页（重写） ============ */
 renderRec = function () {
   const box = document.getElementById('recBody');
@@ -742,7 +832,7 @@ renderRec = function () {
     return s;
   };
 
-  let h = cloudCard();
+  let h = cloudCard() + evZoneCard(all);
 
   // ===== 颜色说明 =====
   h += '<div class="card"><div class="title"><span>颜色说明</span>' +

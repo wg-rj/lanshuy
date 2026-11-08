@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v39</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v40</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -636,6 +636,61 @@ function render(r,meta){
 }
 
 
+
+/* ============ 云端预测 ============ */
+const CLOUD_URL = './今日预测.json';
+let CLOUD = null, CLOUD_ERR = '';
+
+function cloudLoad(cb) {
+  if (CLOUD) { cb(); return; }
+  fetch(CLOUD_URL + '?v=' + Date.now(), { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(d => { CLOUD = d; cb(); })
+    .catch(e => { CLOUD_ERR = e.message || '读取失败'; cb(); });
+}
+window.cloudReload = function () { CLOUD = null; CLOUD_ERR = ''; renderRec(); };
+
+function cloudCard() {
+  if (!CLOUD) {
+    return '<div class="card"><div class="title"><span>云端预测</span>' +
+      '<span class="badge b-mid">每天 17:00 自动跑</span></div>' +
+      '<div class="tip">' + (CLOUD_ERR ? '读取失败：' + CLOUD_ERR + '（可能是还没跑过，或网络问题）'
+        : '正在读取…') + '</div>' +
+      '<button class="mini" style="margin-top:10px" onclick="cloudReload()">重新读取</button></div>';
+  }
+  const ms = CLOUD.matches || [];
+  if (!ms.length) {
+    return '<div class="card"><div class="title"><span>云端预测</span></div>' +
+      '<div class="tip">云端今天没有算出场次（' + (CLOUD.updated || '') + '）</div></div>';
+  }
+  const TIER = { '高': '#2E7D32', '中': '#C79100', '低': '#94A1B2', '很低': '#B0BAC7' };
+  let h = '<div class="card"><div class="title"><span>云端预测</span>' +
+    '<span class="badge b-high">' + ms.length + ' 场</span></div>';
+  h += '<div class="tip">更新时间 ' + (CLOUD.updated || '?') + '　·　真欧赔 ' +
+       (CLOUD.euCount || 0) + ' 场，其余用竞彩推算</div>';
+  h += '<div class="strow" style="font-size:12px;color:#7A8797;padding-bottom:6px">' +
+       '<span style="flex:1">比赛</span><span style="width:56px;text-align:right">推荐</span>' +
+       '<span style="width:48px;text-align:right">概率</span>' +
+       '<span style="width:46px;text-align:right">比分</span>' +
+       '<span style="width:46px;text-align:right">平局</span></div>';
+  for (const x of ms) {
+    const col = TIER[x.tier] || '#94A1B2';
+    h += '<div class="strow" style="padding:11px 2px">' +
+         '<span style="flex:1">' + x.h + ' vs ' + x.a +
+         '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+         x.lg + '　' + (x.date || '').slice(5) + ' ' + (x.time || '') + '</s></span>' +
+         '<span style="width:56px;text-align:right;font-weight:600">' + x.pick + '</span>' +
+         '<span style="width:48px;text-align:right;color:' + col + ';font-weight:600">' +
+         Math.round(x.prob * 100) + '%</span>' +
+         '<span style="width:46px;text-align:right">' + x.score + '</span>' +
+         '<span style="width:46px;text-align:right;color:' +
+         (x.draw >= 0.28 ? '#7B3FA0' : '#94A1B2') + '">' + Math.round(x.draw * 100) + '%</span></div>';
+  }
+  h += '<button class="mini" style="margin-top:10px" onclick="cloudReload()">刷新</button>';
+  h += '</div>';
+  return h;
+}
+
 /* ============ v33 推荐页（重写） ============ */
 renderRec = function () {
   const box = document.getElementById('recBody');
@@ -644,7 +699,10 @@ renderRec = function () {
   const cnt = document.getElementById('recCount');
   if (cnt) cnt.textContent = all.length ? (all.length + ' 场可算') : '';
   if (!all.length) {
-    box.innerHTML = '<div class="card"><div class="tip">还没有比赛数据。回「预测」页点「拉取官网」。</div></div>';
+    box.innerHTML = cloudCard() +
+      '<div class="card"><div class="tip">本地还没有实时数据（上面的「云端预测」每天 17:00 自动生成）。' +
+      '想看实时赔率，回「预测」页点「拉取官网」。</div></div>';
+    if (!CLOUD) cloudLoad(function () { if (CLOUD) renderRec(); });
     return;
   }
 
@@ -680,7 +738,7 @@ renderRec = function () {
     return s;
   };
 
-  let h = '';
+  let h = cloudCard();
 
   // ===== 颜色说明 =====
   h += '<div class="card"><div class="title"><span>颜色说明</span>' +
@@ -840,6 +898,7 @@ renderRec = function () {
   } catch (e) {}
 
   box.innerHTML = h;
+  if (!CLOUD) cloudLoad(function(){ if (CLOUD) renderRec(); });
 };
 
 /* ============ 台账 ============ */

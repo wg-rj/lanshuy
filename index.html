@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v41</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v42</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -2379,6 +2379,28 @@ function renderOdds(data){
   tm.textContent=`${sell.length} 场在售 · 拉取于 ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}${upTxt} · ${gate}`;
 }
 
+
+/* 向云端要真欧赔（捷报 Coral），10 分钟缓存 */
+const EURO_API = 'https://jcdata-pxigzkgjcb.cn-hangzhou.fcapp.run?euro=1';
+async function fetchEuro() {
+  try {
+    const c = LSget('eurocache');
+    if (c) {
+      const o = JSON.parse(c);
+      if (o && o.t && Date.now() - o.t < 10 * 60 * 1000) return o.d || {};
+    }
+  } catch (e) {}
+  try {
+    const r = await fetch(EURO_API, { cache: 'no-store' });
+    const d = await r.json();
+    if (d && d.euro && typeof d.euro === 'object') {
+      LSset('eurocache', JSON.stringify({ t: Date.now(), d: d.euro }));
+      return d.euro;
+    }
+  } catch (e) {}
+  return {};
+}
+
 async function pullOdds(force){
   const btn=document.getElementById('pullBtn'), box=document.getElementById('oddsList');
   const c=oddsCache();
@@ -2419,6 +2441,22 @@ async function pullOdds(force){
                 recent:(m.recent||null), h2h:(m.h2h||null) }
         });
       }
+
+    // 向云端补真欧赔（捷报 Coral）
+    try {
+      const em = await fetchEuro();
+      let fixed = 0;
+      for (const m of list) {
+        if (m.euSrc !== 'jc') continue;
+        const o = em[m.num];
+        if (o && o.length === 3 && Number(o[0]) > 1) {
+          m.eu = o.map(Number); m.euSrc = 'eu';
+          m.euTxt = m.eu.map(x => x.toFixed(2)).join('/');
+          fixed++;
+        }
+      }
+    } catch (e) {}
+
     const data={t:Date.now(),up:((d.value||{}).lastUpdateTime||""),list};
     LSset(ODDS_KEY,JSON.stringify(data));
     renderOdds(data);

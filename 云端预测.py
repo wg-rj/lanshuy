@@ -43,7 +43,7 @@ def get(u, hdr, t=30):
 
 def norm(s):
     s = str(s or "")
-    for w in ["FC", "联", "队", " ", "　", "·", "（", "）", "(", ")", "04", "U21", "U19", "U20"]:
+    for w in ["FC", "队", " ", "　", "·", "（", "）", "(", ")", "04", "U21", "U19", "U20"]:
         s = s.replace(w, "")
     return s
 
@@ -199,6 +199,13 @@ for r in rows:
     hf = M.htft(lh, la)
     pick = int(np.argmax(ps))
     i, j = np.unravel_index(np.argmax(G), G.shape)
+    # 与推荐方向一致的最可能比分（避免全是 1:1）
+    best = (-1.0, 0, 0)
+    for _a in range(G.shape[0]):
+        for _b in range(G.shape[1]):
+            _yy = 0 if _a > _b else (1 if _a == _b else 2)
+            if _yy == pick and G[_a, _b] > best[0]:
+                best = (G[_a, _b], _a, _b)
     k = int(np.argmax(hf))
     tg = np.array([G[np.minimum(np.add.outer(np.arange(G.shape[0]), np.arange(G.shape[1])), 7) == t].sum()
                    for t in range(8)])
@@ -221,7 +228,8 @@ for r in rows:
         "tier": M.tier_1x2(float(ps[pick])),
         "hf": SER[k], "hfP": round(float(hf[k]), 4),
         "hf3": [[SER[t], round(float(hf[t]), 4)] for t in np.argsort(-hf)[:3]],
-        "score": f"{i}:{j}", "scoreP": round(float(G[i, j]), 4),
+        "score": f"{best[1]}:{best[2]}", "scoreP": round(float(best[0]), 4),
+        "scoreTop": f"{i}:{j}",
         "goals": int(np.argmax(tg)), "g4": round(float(tg[4:].sum()), 4),
         "rq": [round(float(x), 4) for x in rp],
         "rqPick": ["让胜", "让平", "让负"][int(np.argmax(rp))],

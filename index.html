@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v40</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v41</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -766,7 +766,9 @@ renderRec = function () {
            '<span class="badge b-low">高赔 · 期望≈0.55</span></div>';
       h += '<div class="tip">比分的赔率通常是 6~15 倍，期望值只有 0.5 左右——纯粹娱乐，别当真</div>';
       const list = all.map(x => {
-        const [sc, p] = x.r.top3[0];
+        const _t = x.r.top3[0] || [];
+        const p = +_t[0] || 0;            // top3 是 [概率, 比分]
+        const sc = _t[1] || '—';
         const od = p > 0 ? (0.88 / p) : 0;   // 竞彩报价 ≈ 返还率 / 概率
         return { m: x.m, txt: sc, p: p, od: od, pD: x.r.p[1] };
       }).sort((a, b) => b.p - a.p);

@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v54</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v56</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -619,7 +619,31 @@ function render(r,meta){
     const mi=h1.indexOf(Math.max(...h1));
     h+=`<div class="card"><div class="title"><span>让球 ${k>0?'+':''}${k}</span><span class="badge ${TC[tier1x2(Math.max(...h1))]}">${tier1x2(Math.max(...h1))}</span></div>
     <div class="big">${['让胜','让平','让负'][mi]} <span style="font-size:20px">${pct(Math.max(...h1))}</span></div>
-    <div class="three">${h1.map((v,i)=>{const on=i===mi?'on':'';return `<div class="${on}"><div class="v">${pct(v)}</div><div class="k">${['让胜','让平','让负'][i]}</div></div>`}).join('')}</div></div>`;
+    <div class="three">${h1.map((v,i)=>{const on=i===mi?'on':'';return `<div class="${on}"><div class="v">${pct(v)}</div><div class="k">${['让胜','让平','让负'][i]}</div></div>`}).join('')}</div>
+    ${(function(){
+      const jcOdds = ((CUR.meta || {}).jc || {}).hhad;
+      const real = jcOdds && [jcOdds.h, jcOdds.d, jcOdds.a].every(x => isFinite(parseFloat(x)) && parseFloat(x) > 1);
+      const oh = real ? [jcOdds.h, jcOdds.d, jcOdds.a].map(Number)
+                      : h1.map(p => (p > 0.01 ? 0.877 / p : 99));
+      let out = '<div class="tip" style="margin-top:10px">' +
+                (real ? '竞彩实盘赔率 → 历史真实发生率' : '按模型推算的赔率 → 历史真实发生率') + '</div>';
+      for (let i = 0; i < 3; i++) {
+        const r = hcRate(oh[i]);
+        if (r === null) continue;
+        const big = oh[i] >= 4.0;
+        out += '<div class="sc"><span>' + ['让胜','让平','让负'][i] + '　' +
+               oh[i].toFixed(2) +
+               (big ? ' <em style="font-style:normal;color:#C0504D;font-weight:600">≥4.0</em>' : '') +
+               '</span><span class="p" style="color:' + (big ? '#C0504D' : '#2E7D32') + '">' +
+               Math.round(r * 100) + '%</span></div>';
+      }
+      const dead = oh.filter(x => x >= 4.0).length;
+      if (dead) out += '<div class="tip" style="color:#C0504D">' + dead +
+        ' 项赔率 ≥4.0（历史只有 20% 左右会发生）——这条路基本堵死，别指望</div>';
+      else out += '<div class="tip" style="color:#7A8797">三项赔率都 &lt;4.0，没有「堵死」的方向</div>';
+      return out;
+    })()}
+    </div>`;
   } else {CUR.hc=null;}
   h+=`<button class="go" id="keep" style="background:#2E7D32">存进台账</button>`;
   document.getElementById('out').innerHTML=h;
@@ -865,6 +889,22 @@ function leanCard(all, pickOf) {
 
 /* ============ v33 推荐页（重写） ============ */
 
+const MARGIN_SCORES={"3":{"n":1148,"top":[["3:0",0.365],["4:0",0.199],["4:1",0.166],["5:1",0.084]]},"2":{"n":1194,"top":[["2:0",0.562],["3:1",0.345],["4:2",0.077],["5:3",0.014]]},"1":{"n":2107,"top":[["1:0",0.424],["2:1",0.416],["3:2",0.141],["4:3",0.017]]},"0":{"n":2434,"top":[["1:1",0.456],["0:0",0.27],["2:2",0.225],["3:3",0.044]]},"-1":{"n":1666,"top":[["1:2",0.429],["0:1",0.408],["2:3",0.131],["3:4",0.028]]},"-2":{"n":795,"top":[["0:2",0.569],["1:3",0.337],["2:4",0.081],["3:5",0.01]]},"-3":{"n":594,"top":[["0:3",0.412],["1:4",0.173],["0:4",0.167],["1:5",0.072]]}};
+
+/* 让球赔率 → 历史真实发生率（全库 29,643 个让球选项实测） */
+const HC_RATE = [
+  [1.00, 1.20, 0.760], [1.20, 1.40, 0.720], [1.40, 1.60, 0.605],
+  [1.60, 2.00, 0.510], [2.00, 2.50, 0.411], [2.50, 3.00, 0.321],
+  [3.00, 3.50, 0.271], [3.50, 4.00, 0.230], [4.00, 5.00, 0.202],
+  [5.00, 6.50, 0.148], [6.50, 999, 0.056],
+];
+function hcRate(o) {
+  const v = parseFloat(o);
+  if (!isFinite(v) || v <= 1) return null;
+  for (const row of HC_RATE) if (v >= row[0] && v < row[1]) return row[2];
+  return null;
+}
+
 /* ============ 净胜球分布 ============ */
 function marginOf(G) {
   const out = { '主3': 0, '主2': 0, '主1': 0, '平': 0, '客1': 0, '客2': 0, '客3': 0 };
@@ -925,6 +965,25 @@ function marginCard(G) {
   } else {
     h += '<div class="tip" style="color:#8A6D1F">模型认为「赢 1 球」更可能' +
          '——这类场次实际赢 1 球 17.4%，赢 2+ 只有 10.3%（834 场实测）</div>';
+  }
+  // 该档内最可能的比分（用全库真实构成）
+  const dvKeys = { '主3': 3, '主2': 2, '主1': 1, '平': 0, '客1': -1, '客2': -2, '客3': -3 };
+  let topK = null, topP = -1;
+  for (const k in mg) { if (mg[k] > topP) { topP = mg[k]; topK = k; } }
+  const labTop = topK === '平' ? '平局' :
+    topK.replace('主', '主队赢').replace('客', '客队赢');
+  const ms = MARGIN_SCORES[String(dvKeys[topK])];
+  if (ms) {
+    const tot = ms.top.slice(0, 3).reduce((a, x) => a + x[1], 0);
+    h += '<div class="tip" style="margin-top:9px;padding:9px 11px;background:#F7F9FC;' +
+         'border-radius:9px;border:1px solid #E4EAF2;line-height:1.75">' +
+         '<b style="color:#0B1F33">最可能的净胜球档是「' + labTop + '」' +
+         Math.round(topP * 100) + '%</b>，' +
+         '该档历史上（' + ms.n + ' 场）的比分构成：<br>' +
+         ms.top.slice(0, 3).map(x => '<span style="color:#33414F">' + x[0] + '</span> ' +
+           Math.round(x[1] * 100) + '%').join('　') +
+         '<br><span style="color:#7A8797">前三合计 ' + Math.round(tot * 100) + '%，' +
+         '别往外推了（4:2、5:3 这类不到 8%）</span></div>';
   }
   h += '</div>';
   return h;

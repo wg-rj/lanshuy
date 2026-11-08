@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v51</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v53</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -675,7 +675,7 @@ function cloudCard() {
   h += '<div class="strow" style="font-size:12px;color:#7A8797;padding-bottom:6px">' +
        '<span style="flex:1">比赛</span><span style="width:56px;text-align:right">推荐</span>' +
        '<span style="width:48px;text-align:right">概率</span>' +
-       '<span style="width:46px;text-align:right">比分</span>' +
+       '<span style="width:70px;text-align:right">比分 高▸同向</span>' +
        '<span style="width:46px;text-align:right">平局</span></div>';
   for (const x of ms) {
     const col = TIER[x.tier] || '#94A1B2';
@@ -686,7 +686,10 @@ function cloudCard() {
          '<span style="width:56px;text-align:right;font-weight:600">' + x.pick + '</span>' +
          '<span style="width:48px;text-align:right;color:' + col + ';font-weight:600">' +
          Math.round(x.prob * 100) + '%</span>' +
-         '<span style="width:46px;text-align:right">' + x.score + '</span>' +
+         '<span style="width:70px;text-align:right">' +
+         (x.scoreTop && x.scoreTop !== x.score
+           ? x.scoreTop + '<s style="color:#94A1B2;text-decoration:none">▸</s>' + x.score
+           : x.score) + '</span>' +
          '<span style="width:46px;text-align:right;color:' +
          (x.draw >= 0.28 ? '#7B3FA0' : '#94A1B2') + '">' + Math.round(x.draw * 100) + '%</span></div>';
   }
@@ -785,6 +788,80 @@ function evZoneCard(all) {
 }
 
 
+const LEAN_STATS={"N":9417,"byLine":{"-2":{"n":331,"o1":{"主胜":[0.798,1.16,331]},"oh":{"让负":[0.477,1.99,285]},"y1":{"主胜":0.798,"平":0.118,"客胜":0.085}},"-1":{"n":5869,"o1":{"主胜":[0.536,1.75,5605],"客胜":[0.411,2.31,253]},"oh":{"让胜":[0.443,2.03,1227],"让负":[0.521,1.76,4642]},"y1":{"主胜":0.524,"平":0.251,"客胜":0.225}},"+1":{"n":3094,"o1":{"主胜":[0.427,2.33,117],"客胜":[0.493,1.82,2970]},"oh":{"让胜":[0.546,1.73,2656],"让负":[0.409,2.03,438]},"y1":{"主胜":0.242,"平":0.273,"客胜":0.485}},"+2":{"n":123,"o1":{"客胜":[0.837,1.17,123]},"oh":{"让胜":[0.527,1.97,110]},"y1":{"主胜":0.065,"平":0.098,"客胜":0.837}}},"combo":{"negLowestBelowHome":{"n":2698,"hit":0.575,"odds":1.55,"y1":{"主胜":0.425,"平":0.286,"客胜":0.289}},"posLowestBelowHome":{"n":1687,"hit":0.586,"odds":1.56,"y1":{"主胜":0.29,"平":0.296,"客胜":0.414}}}};
+
+/* ============ 均势局：赔率倾斜 ============ */
+function leanOf(m) {
+  const raw = (m && m.raw) || {};
+  const hd = raw.had || {}, hh = raw.hhad || {};
+  const o1 = [parseFloat(hd.h), parseFloat(hd.d), parseFloat(hd.a)];
+  const oh = [parseFloat(hh.h), parseFloat(hh.d), parseFloat(hh.a)];
+  if (!o1.every(x => isFinite(x) && x > 1) || !oh.every(x => isFinite(x) && x > 1)) return null;
+  let line = 0;
+  try { line = Math.round(parseFloat(hh.goalLine || 0)); } catch (e) {}
+  const i1 = o1.indexOf(Math.min.apply(null, o1));
+  const ih = oh.indexOf(Math.min.apply(null, oh));
+  const N1 = ['主胜', '平', '客胜'][i1], NH = ['让胜', '让平', '让负'][ih];
+  const key = (line > 0 ? '+' : '') + line;
+  const L = LEAN_STATS.byLine[key] || null;
+  const s1 = L && L.o1[N1] ? L.o1[N1] : null;
+  const sh = L && L.oh[NH] ? L.oh[NH] : null;
+  // 让球最低那一项比胜平负最低还低 → 让球市场更确定
+  const stronger = oh[ih] < o1[i1];
+  return { line: key, N1, o1: o1[i1], s1, NH, oh: oh[ih], sh, stronger, L };
+}
+
+function leanCard(all, pickOf) {
+  const rows = [];
+  for (const x of all) {
+    const p = x.r.p;
+    const mx = Math.max.apply(null, p);
+    if (mx >= 0.55) continue;          // 只处理均势局
+    const l = leanOf(x.m);
+    if (!l) continue;
+    rows.push({ m: x.m, p: mx, l: l });
+  }
+  if (!rows.length) {
+    return '<div class="card"><div class="title"><span>均势局</span>' +
+           '<span class="badge b-mid">今天没有</span></div>' +
+           '<div class="tip">今天所有可算场次的首选概率都 ≥55%，不存在均势局。</div></div>';
+  }
+  rows.sort((a, b) => a.p - b.p);
+  let h = '<div class="card"><div class="title"><span>均势局 · 不推荐</span>' +
+          '<span class="badge b-mid">' + rows.length + ' 场</span></div>';
+  h += '<div class="tip" style="padding:10px 12px;background:#FBF7EE;border-radius:10px;' +
+       'border:1px solid #EFE2C8;line-height:1.8">' +
+       '<b style="color:#8A6D1F">首选概率 &lt;55% 的场次，不给推荐</b>——这类比赛历史命中率只有 41%~49%，' +
+       '推荐等于抛硬币。下面告诉你「赔率更偏向哪一边」。</div>';
+
+  for (const x of rows) {
+    const l = x.l;
+    h += '<div style="padding:12px 2px;border-bottom:1px dashed #eef2f7">';
+    h += '<div style="font-weight:600;color:#0B1F33">' + x.m.h + ' vs ' + x.m.a +
+         ' <em style="font-style:normal;color:#94A1B2;font-weight:400;font-size:12px">' +
+         (x.m.lg || '') + ' ' + (x.m.num || '') + '　首选 ' + Math.round(x.p * 100) + '%</em></div>';
+    h += '<div style="margin-top:7px;line-height:1.75;font-size:13px">';
+    h += '<div>胜平负最低：<b>' + l.N1 + ' ' + l.o1.toFixed(2) + '</b>' +
+         (l.s1 ? '　历史命中 ' + Math.round(l.s1[0] * 100) + '%' : '') + '</div>';
+    h += '<div>让球最低（' + l.line + '）：<b>' + l.NH + ' ' + l.oh.toFixed(2) + '</b>' +
+         (l.sh ? '　历史命中 ' + Math.round(l.sh[0] * 100) + '%' : '') + '</div>';
+    if (l.stronger) {
+      const combo = (l.NH === '让负' ? LEAN_STATS.combo.negLowestBelowHome
+                                     : (l.NH === '让胜' ? LEAN_STATS.combo.posLowestBelowHome : null));
+      h += '<div style="margin-top:5px;color:#2E7D32;font-weight:600">' +
+           '↑ 让球赔率比胜平负还低 → 让球市场更确定' +
+           (combo ? '（同类 ' + combo.n + ' 场，命中 ' + Math.round(combo.hit * 100) + '%）' : '') + '</div>';
+    } else {
+      h += '<div style="margin-top:5px;color:#94A1B2">两者方向不一致，没有明显倾斜</div>';
+    }
+    h += '</div></div>';
+  }
+  h += '<div class="tip" style="margin-top:10px;color:#8A95A3">' +
+       '「让球最低」命中率更高，是因为让球有缓冲（让负包括平局和客胜），不是因为更会预测。' +
+       '期望仍然 &lt;1，只是亏得少。</div></div>';
+  return h;
+}
+
 /* ============ v33 推荐页（重写） ============ */
 renderRec = function () {
   const box = document.getElementById('recBody');
@@ -832,7 +909,7 @@ renderRec = function () {
     return s;
   };
 
-  let h = cloudCard() + evZoneCard(all);
+  let h = cloudCard() + evZoneCard(all) + leanCard(all);
 
   // ===== 颜色说明 =====
   h += '<div class="card"><div class="title"><span>颜色说明</span>' +

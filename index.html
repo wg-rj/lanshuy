@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v59</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v60</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -2360,6 +2360,17 @@ window.showStat = function (code) {
 /* ============ 赔率速查 v57 ============ */
 
 
+
+const QUICK_CUP = [
+  ['杯赛（1,705 场）', '48.0%', '21.6%', '2.89', '32.4%'],
+  ['联赛（8,233 场）', '44.1%', '25.1%', '2.87', '32.4%'],
+];
+const QUICK_ENG_CUP = [
+  ['英锦赛', '35', '5.7%', '3.31'],
+  ['英联杯', '56', '14.3%', '3.43'],
+  ['英足总杯', '47', '23.4%', '3.43'],
+];
+
 const QUICK_NEG3 = [
   ['1.3-1.6', '16.9%', '22.8%', '60.3%', '28.7%'],
   ['1.6-1.8', '20.7%', '26.5%', '52.7%', '28.2%'],
@@ -2408,14 +2419,14 @@ function quickTable4(title, cols, rows, note) {
        '<span style="flex:1;text-align:right">' + cols[1] + '</span>' +
        '<span style="flex:1;text-align:right">' + cols[2] + '</span>' +
        '<span style="flex:1;text-align:right">' + cols[3] + '</span>' +
-       '<span style="flex:1;text-align:right">' + cols[4] + '</span></div>';
+       (cols[4] ? '<span style="flex:1;text-align:right">' + cols[4] + '</span>' : '') + '</div>';
   for (const r of rows) {
     h += '<div class="strow" style="padding:8px 2px">' +
          '<span style="width:58px;font-size:12px;color:#33414F">' + r[0] + '</span>' +
          '<span style="flex:1;text-align:right;font-size:12px;color:#2E7D32">' + r[1] + '</span>' +
          '<span style="flex:1;text-align:right;font-size:12px;color:#7B3FA0;font-weight:600">' + r[2] + '</span>' +
          '<span style="flex:1;text-align:right;font-size:12px;color:#C0504D">' + r[3] + '</span>' +
-         '<span style="flex:1;text-align:right;font-size:12px;color:#6B7785">' + r[4] + '</span></div>';
+         (r.length > 4 ? '<span style="flex:1;text-align:right;font-size:12px;color:#6B7785">' + r[4] + '</span>' : '') + '</div>';
   }
   if (note) h += '<div class="tip" style="margin-top:9px;color:#8A95A3">' + note + '</div>';
   h += '</div>';
@@ -2470,6 +2481,17 @@ function quickRefCards() {
     '让平固定在 24.5%~26.7%，不随赔率变化——押让平永远是四分之一左右的命中。' +
     '让负赔率越高，让胜越多（17%→48%）、平局越少（29%→17%）。' +
     '让负赔率 2.0~2.2 时：让胜 29.9% / 让负 44.8%，是「打穿或不赢」的二选一结构。');
+  h += quickTable4('⑥ 杯赛 vs 联赛（全库 9,938 场）',
+    ['类型', '主胜', '平局', '场均球', '4+球'],
+    QUICK_CUP,
+    '杯赛平局比联赛少 3.5pp，其余几乎一样。「杯赛平局少」这个说法只有部分联赛成立。');
+  h += quickTable4('⑦ 英格兰杯赛：平局特别少、进球特别多',
+    ['赛事', '场次', '平局', '场均球'],
+    QUICK_ENG_CUP,
+    '英格兰体系的杯赛（英锦赛、英联杯）平局只有 6~14%，场均 3.3~3.4 球——' +
+    '低级别球队防守差、轮换多、不保守求平。' +
+    '押这类比赛：别买平局、别买小比分；模型的平局概率会高估 10~18pp。' +
+    '⚠ 英锦赛只有 35 场样本，英联杯 56 场，仅供参考。');
   return h;
 }
 

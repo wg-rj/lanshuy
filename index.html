@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v74</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v77</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -954,13 +954,35 @@ function render(r,meta){
 
 
 
+/* ============ 带超时的 fetch（手机网络差时防止永久卡住） ============ */
+function fetchTO(url, ms, opt) {
+  ms = ms || 12000;
+  let AC = null;
+  try { if (typeof AbortController !== 'undefined') AC = new AbortController(); } catch (e) {}
+  const o = Object.assign({}, opt || {}, AC ? { signal: AC.signal } : {});
+  let timer = null;
+  const guard = new Promise(function (_, reject) {
+    timer = setTimeout(function () {
+      try { if (AC) AC.abort(); } catch (e) {}
+      reject(new Error('超时 ' + (ms / 1000) + ' 秒'));
+    }, ms);
+  });
+  return Promise.race([fetch(url, o), guard]).then(function (r) {
+    if (timer) clearTimeout(timer);
+    return r;
+  }, function (e) {
+    if (timer) clearTimeout(timer);
+    throw e;
+  });
+}
+
 /* ============ 云端预测 ============ */
-const CLOUD_URL = './今日预测.json';
+const CLOUD_URL = 'https://lanshu-dkjemdxchd.cn-hangzhou.fcapp.run/cloud.json';
 let CLOUD = null, CLOUD_ERR = '';
 
 function cloudLoad(cb) {
   if (CLOUD) { cb(); return; }
-  fetch(CLOUD_URL + '?v=' + Date.now(), { cache: 'no-store' })
+  fetchTO(CLOUD_URL + '?v=' + Date.now(), 10000, { cache: 'no-store' })
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(d => { CLOUD = d; cb(); })
     .catch(e => { CLOUD_ERR = e.message || '读取失败'; cb(); });
@@ -3270,7 +3292,7 @@ async function fetchEuro() {
     }
   } catch (e) {}
   try {
-    const r = await fetch(EURO_API, { cache: 'no-store' });
+    const r = await fetchTO(EURO_API, 9000, { cache: 'no-store' });
     const d = await r.json();
     if (d && d.euro && typeof d.euro === 'object') {
       LSset('eurocache', JSON.stringify({ t: Date.now(), d: d.euro }));
@@ -3286,7 +3308,7 @@ async function pullOdds(force){
   if(!force && cacheFresh(c)){ renderOdds(c); return; }   // 缓存还新 → 不联网
   btn.disabled=true; btn.textContent='拉取中…';
   try{
-    const r=await fetch(API,{cache:'no-store'});
+    const r=await fetchTO(API, 15000, {cache:'no-store'});
     const d=await r.json();
     const list=[];
     for(const day of ((d.value||{}).matchInfoList||[]))
@@ -3345,8 +3367,10 @@ async function pullOdds(force){
     if(c){ renderOdds(c); box.textContent='联网失败，显示上次数据：'+e.message; }
     else box.textContent='拉取失败：'+e.message+'　（可手动填）';
     btn.textContent='重试';
+  }finally{
+    btn.disabled=false;
+    if(btn.textContent==='拉取中…') btn.textContent='重试';
   }
-  btn.disabled=false;
 }
 
 window.pickOdds=function(i){
@@ -3370,9 +3394,16 @@ window.pickOdds=function(i){
 document.getElementById('pullBtn').onclick=function(){ pullOdds(true); };
 document.getElementById('expSnap').onclick=exportSnapshot;
 (function(){
-  const c=oddsCache();
-  if(c) renderOdds(c);
-  if(!cacheFresh(c)) pullOdds(false);
+  try{
+    const c=oddsCache();
+    if(c) renderOdds(c);
+    if(!cacheFresh(c)){
+      // 不阻塞首屏：延后一点再联网，且失败也不影响其它卡片
+      setTimeout(function(){ pullOdds(false).catch(function(){}); }, 60);
+    }
+  }catch(e){
+    try{ document.getElementById('oddsList').textContent='读取本地缓存失败：'+e.message; }catch(_){}
+  }
 })();
 renderLedger();renderCalib();
 </script>

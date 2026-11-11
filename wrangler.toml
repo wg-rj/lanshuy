@@ -1,0 +1,8 @@
+# Cloudflare Workers 静态资源托管配置
+name = "lanshuy"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "."
+binding = "ASSETS"

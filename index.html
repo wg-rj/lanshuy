@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v77</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v78</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -835,9 +835,40 @@ function render(r,meta){
   <div class="three">${r.tg.map((v,i)=>`<div class="${i===r.peak?'on':''}"><div class="v">${pct(v)}</div><div class="k">${i===7?'7+':i}</div></div>`).join('')}</div>
   </div>`;
   h+=`<div class="card"><div class="title"><span>比分</span><span class="badge b-vlow">参考 · 命中约 13%</span></div>
-  <div class="tip">最可能的 ${top5.length} 个比分（每个概率都不高，历史命中率只有约 13%，别当依据）</div>
-  ${top5.map(x=>`<div class="sc"><span>${x[1]}<em style="color:#94A1B2;margin-left:8px">${gOf(x[1])}球</em></span><span class="p">${pct(x[0])}</span></div>`).join('')}
-  <div class="tip" style="margin-top:8px">这 ${top5.length} 个比分全部落在 <b>${gl}–${gLabel(gh)} 球</b>，合计 ${pct(sum5)}</div>
+  <div class="tip">先看「谁赢」那组的合计，再在那个组里挑比分——单个比分最高不等于那个结果最可能</div>
+  ${(function(){
+    const G = CUR.m, KM = G.length;
+    const g = {'主胜':[], '平':[], '客胜':[]}, tot = {'主胜':0, '平':0, '客胜':0};
+    for (let i = 0; i < KM; i++) for (let j = 0; j < KM; j++) {
+      const k = i > j ? '主胜' : (i === j ? '平' : '客胜');
+      g[k].push([G[i][j], i + ':' + j]); tot[k] += G[i][j];
+    }
+    const order = ['客胜', '平', '主胜'].sort(function (a, b) { return tot[b] - tot[a]; });
+    // 找出单独最高的那个比分属于哪一组
+    let bs = -1, bsName = '', bsGroup = '';
+    for (const k of order) for (const x of g[k]) if (x[0] > bs) { bs = x[0]; bsName = x[1]; bsGroup = k; }
+    let out = '';
+    for (const k of order) {
+      const items = g[k].slice().sort(function (a, b) { return b[0] - a[0]; }).slice(0, 3);
+      const on = (k === order[0]);
+      out += '<div style="margin-top:7px;padding:8px 10px;border-radius:9px;' +
+        (on ? 'background:#EAF5EC;border:1px solid #CBE5D0' : 'background:#F7F9FC;border:1px solid #E4EAF2') +
+        ';line-height:1.8">' +
+        '<b style="color:#0B1F33">' + k + '</b>　<b style="color:' + (on ? '#2E7D32' : '#607080') + ';font-size:17px">' +
+        Math.round(tot[k] * 100) + '%</b>' +
+        (on ? '<span style="color:#2E7D32;font-size:12px">　← 最大组，猜比分跟这组</span>' : '') + '<br>' +
+        items.map(function (x) {
+          return '<span style="margin-right:13px">' + x[1] + ' <b>' + Math.round(x[0] * 100) + '%</b></span>';
+        }).join('') + '</div>';
+    }
+    out += '<div class="tip" style="margin-top:9px;padding:8px 10px;background:#FBF7EE;' +
+      'border:1px solid #EFE2C8;border-radius:9px;color:#8A6D1F;line-height:1.75">' +
+      '单个比分最高是 <b>' + bsName + '</b>（' + Math.round(bs * 100) + '%），它属于「' + bsGroup +
+      '」组——而这组总共只有 <b>' + Math.round(tot[bsGroup] * 100) + '%</b>。' +
+      '最大组是「' + order[0] + '」<b>' + Math.round(tot[order[0]] * 100) + '%</b>，' +
+      '两组不一定是同一个。<br><span style="color:#A08A4A">这就是「1:1 最常见」和「客胜最可能」能同时成立的原因。</span></div>';
+    return out;
+  })()}
   ${(function(){
     const kb = knnOdds(meta.eu, 30);
     if (!kb) return '';

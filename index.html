@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v78</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v79</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -649,6 +649,28 @@ function verdictCard(r, meta) {
        '<span style="color:#607080">全库同档实测 ' + (base ? Math.round(base*100) + '%' : '—') +
        (lt ? '　·　我们台账 ' + lt.hit + '/' + lt.n + ' = ' + Math.round(lt.rate*100) + '%' : '') +
        '</span>';
+  // 首选是否过半：全库 1,562 场实测，分水岭很明显
+  if (r.maxP < 0.5) {
+    const rest = 1 - r.maxP;
+    h += '<div style="margin-top:6px;padding:8px 10px;background:#FDECEA;border:1px solid #F5C6C0;' +
+         'border-radius:8px;color:#8B2E23;line-height:1.75">' +
+         '⚠ <b>首选不到一半</b>：其余两项合计 <b>' + pct(rest) + '</b> 更大<br>' +
+         '全库 720 场同类（首选 &lt;50%）实测：首选只中 <b>42.4%</b>' +
+         '（首选 ≥50% 的 842 场是 60.3%）<br>' +
+         '<span style="color:#A0524A">这类场次本质上没有方向，' +
+         (r.maxP < 0.4 ? '<b>低于 40% 时只有 34.6%</b>，基本等于掷硬币' : '别把首选当结论') +
+         '</span></div>';
+  } else if (r.maxP >= 0.65) {
+    h += '<div style="margin-top:6px;padding:8px 10px;background:#EAF5EC;border:1px solid #CBE5D0;' +
+         'border-radius:8px;color:#2E7D32;line-height:1.75">' +
+         '✓ <b>首选过半且够硬</b>（' + pct(r.maxP) + '）<br>' +
+         '全库首选 ≥65% 的 344 场实测：命中 <b>73.8%</b></div>';
+  } else {
+    h += '<div style="margin-top:6px;padding:8px 10px;background:#F4F8FC;border:1px solid #DCE7F2;' +
+         'border-radius:8px;color:#33506B;line-height:1.75">' +
+         '首选刚过半（' + pct(r.maxP) + '）——比 &lt;50% 好，但还没到硬<br>' +
+         '全库 55-65% 档命中 <b>56.4%</b>，≥65% 档 <b>73.8%</b></div>';
+  }
   // 平局概率高 → 提醒「差一球」更多
   if (r.p[1] >= 0.27) {
     h += '<div style="margin-top:6px;padding:8px 10px;background:#FBF7EE;border:1px solid #EFE2C8;' +

@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v82</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v84</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -969,6 +969,62 @@ function render(r,meta){
     }
     out += '</div>';
     return out;
+  })()}
+  ${(function(){
+    const e = meta.eu || [];
+    const hh = +e[0], aa = +e[2];
+    if (!(hh > 1) || !(aa > 1)) return '';
+    const fav = Math.min(hh, aa);
+    if (fav >= 1.5) return '';
+    const homeFav = hh <= aa;
+    const bands = [
+      { lo: 1.0, hi: 1.3, n: 659,
+        top: [['3-0',0.094],['2-1',0.085],['2-0',0.083],['1-0',0.080]] },
+      { lo: 1.3, hi: 1.5, n: 924,
+        top: [['1-0',0.095],['2-0',0.085],['3-0',0.080],['2-1',0.073]] }
+    ];
+    let band = null;
+    for (const b of bands) if (fav >= b.lo && fav < b.hi) { band = b; break; }
+    if (!band) return '';
+    // 客队热门时镜像比分
+    const mirror = function (s) {
+      if (homeFav) return s;
+      const q = s.split('-'); return q[1] + '-' + q[0];
+    };
+    const hist = band.top.map(function (x) {
+      return '<span style="margin-right:12px">' + mirror(x[0]) + ' <b>' +
+             Math.round(x[1]*100) + '%</b></span>';
+    }).join('');
+    const modelTop = top5.length ? top5[0][1] : '—';
+    const modelP = top5.length ? top5[0][0] : 0;
+    const histTop = mirror(band.top[0][0]);
+    const histP = band.top[0][1];
+    const gap = Math.abs(modelP - histP);
+    let tail;
+    if (modelTop === histTop) {
+      tail = '模型和历史选的是同一个，这种情形比较稳。';
+    } else if (false) {
+      tail = '模型首选 <b>' + modelTop + '</b> ' + Math.round(modelP*100) + '%，' +
+             '历史最常见 <b>' + histTop + '</b> ' + Math.round(histP*100) + '%' +
+             '——差不到 2 个百分点，别纠结。';
+    } else if (modelP > histP + 0.02) {
+      tail = '模型首选 <b>' + modelTop + '</b> ' + Math.round(modelP*100) + '%，' +
+             '历史最常见是 <b>' + histTop + '</b> ' + Math.round(histP*100) + '%。' +
+             '模型比历史更集中——这场比同档平均更像「一边倒」。';
+    } else if (modelP < histP - 0.02) {
+      tail = '模型首选 <b>' + modelTop + '</b> ' + Math.round(modelP*100) + '%，' +
+             '历史最常见是 <b>' + histTop + '</b> ' + Math.round(histP*100) + '%。' +
+             '模型认为这场比同档平均更分散。';
+    } else {
+      tail = '模型首选 <b>' + modelTop + '</b> ' + Math.round(modelP*100) + '%，' +
+             '历史最常见 <b>' + histTop + '</b> ' + Math.round(histP*100) + '%' +
+             '——差不到 2 个百分点，别纠结。';
+    }
+    return '<div class="tip" style="margin-top:9px;padding:9px 11px;background:#F7F9FC;' +
+      'border-radius:9px;border:1px solid #E4EAF2;line-height:1.8">' +
+      '<b style="color:#0B1F33">强队场次（最低赔率 ' + band.lo.toFixed(1) + '-' +
+      band.hi.toFixed(1) + '，' + band.n + ' 场）历史最常见比分</b><br>' + hist +
+      '<br><span style="color:#607080">' + tail + '</span></div>';
   })()}
   <div class="tip">进球峰值是 <b>${gLabel(r.peak)} 球</b>（与上面「总进球」一致）</div></div>`;
   h += marginCard(CUR.m);

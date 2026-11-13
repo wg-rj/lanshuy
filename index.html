@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v84</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v85</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -516,7 +516,7 @@ function htftDist(lh,la){const a=poisArr(S_HT*lh),b=poisArr(S_HT*la),c=poisArr((
  for(let i=0;i<KM;i++)for(let j=0;j<KM;j++){const w1=a[i]*b[j];if(w1<1e-12)continue;const s1=Math.sign(i-j);
   for(let k=0;k<KM;k++)for(let l=0;l<KM;l++){const w2=c[k]*d[l];if(w2<1e-12)continue;
    const s2=Math.sign((i+k)-(j+l));out[(1-s1)*3+(1-s2)]+=w1*w2;}}
- const s=out.reduce((x,y)=>x+y,0);return out.map(v=>v/s);}
+ const s=out.reduce((x,y)=>x+y,0);const rr=out.map(v=>v/s);rr[6]*=1.4;rr[2]*=1.2;const t2=rr.reduce((x,y)=>x+y,0);return rr.map(v=>v/t2);}
 function tier1x2(p){return p>=0.68?'高':p>=0.58?'中':p>=0.46?'低':'很低';}
 function tierHtft(p){return p>=0.40?'高':p>=0.30?'中':p>=0.20?'低':'很低';}
 function tierScore(p){return p>=0.33?'高':p>=0.28?'中':p>=0.23?'低':'很低';}

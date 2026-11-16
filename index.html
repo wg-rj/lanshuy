@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v103</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v104</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -743,7 +743,7 @@ function verdictCard(r, meta) {
   if (band) cands.push(band.over);
   const avgC = cands.reduce((a, b) => a + b, 0) / cands.length;
   h += '<div style="padding:8px 2px;border-bottom:1px dashed #eef2f7;line-height:1.8">' +
-       '<b style="color:#0B1F33">② 3 球以上：' + Math.round(tgOver*100) + '%</b><br>' +
+       '<b style="color:#0B1F33">② 3 球及以上：' + Math.round(tgOver*100) + '%</b><br>' +
        '<span style="color:#607080">模型 ' + Math.round(tgOver*100) + '%' +
        (kb ? '　·　最接近30场 ' + Math.round(kb.over*100) + '%' : '') +
        (band ? '　·　同赔率档 ' + Math.round(band.over*100) + '%' : '') +
@@ -854,9 +854,9 @@ function plainCard(r, meta){
             dirTxt + '<br>这类场次历史上实际中 <b>' + Math.round(hist*100) + '%</b>',
             dirTone);
   h += line('② 几球',
-            (big ? '三球以上 ' : '三球以下 ') + pct(big ? over : 1-over),
+            (big ? '三球及以上 ' : '两球及以下 ') + pct(big ? over : 1-over),
             goalTxt + '<br>这类场次历史上 <b>' + Math.round(goalHist*100) + '%</b>' +
-            (big ? ' 真的过了三球' : ' 真的没过三球'),
+            (big ? ' 真的过了三球' : ' 真的不足三球'),
             goalTone);
   if (t1) {
     h += line('③ 比分',
@@ -959,14 +959,14 @@ function render(r,meta){
   const tgOver = (r.tg[3]||0)+(r.tg[4]||0)+(r.tg[5]||0)+(r.tg[6]||0)+(r.tg[7]||0);
   const tgUnder = 1 - tgOver;
   const overCall = tgOver >= 0.5;
-  h+=`<div class="card"><div class="title"><span>总进球</span><span class="badge b-high">3球${overCall?'以上':'以下'}</span></div>
+  h+=`<div class="card"><div class="title"><span>总进球</span><span class="badge b-high">${overCall?'3球及以上':'2球及以下'}</span></div>
   <div style="display:flex;gap:10px;margin:10px 0 12px">
     <div style="flex:${Math.max(tgOver*10,1)};background:${overCall?'#2E7D32':'#EDF2F7'};color:${overCall?'#fff':'#7A8797'};border-radius:9px;padding:11px 6px;text-align:center">
       <div style="font-size:21px;font-weight:700">${pct(tgOver)}</div>
-      <div style="font-size:12px;margin-top:2px">3 球以上</div></div>
+      <div style="font-size:12px;margin-top:2px">3 球及以上</div></div>
     <div style="flex:${Math.max(tgUnder*10,1)};background:${overCall?'#EDF2F7':'#2E7D32'};color:${overCall?'#7A8797':'#fff'};border-radius:9px;padding:11px 6px;text-align:center">
       <div style="font-size:21px;font-weight:700">${pct(tgUnder)}</div>
-      <div style="font-size:12px;margin-top:2px">3 球以下</div></div>
+      <div style="font-size:12px;margin-top:2px">2 球及以下</div></div>
   </div>
   ${(function(){
     const t = tgOver;
@@ -977,7 +977,7 @@ function render(r,meta){
       for (let q = 0; q < B.length; q++) if (t >= B[q][0]) { h = B[q]; break; }
       return '<div class="tip" style="margin-top:6px;padding:8px 11px;background:#EAF5EC;' +
         'border:1px solid #CBE5D0;border-radius:9px;color:#2E7D32;line-height:1.75">' +
-        '\u2713 <b>3 \u7403\u4ee5\u4e0a ' + pct(t) + '</b>\uff08\u2265' + (h[0]*100).toFixed(0) +
+        '\u2713 <b>3 \u7403\u53ca\u4ee5\u4e0a ' + pct(t) + '</b>\uff08\u2265' + (h[0]*100).toFixed(0) +
         '% \u8fd9\u4e00\u6863\uff09<br>' +
         '\u5168\u5e93\u540c\u7c7b ' + h[1] + ' \u573a\u5b9e\u6d4b\uff1a<b>' + h[2].toFixed(1) +
         '%</b> \u8fc7\u4e86\u4e09\u7403\u3000' +
@@ -988,13 +988,13 @@ function render(r,meta){
     for (let q = 0; q < U.length; q++) if (t <= U[q][0]) { u = U[q]; break; }
     return '<div class="tip" style="margin-top:6px;padding:8px 11px;background:#F7F9FC;' +
       'border:1px solid #E4EAF2;border-radius:9px;color:#33506B;line-height:1.75">' +
-      '<b>3 \u7403\u4ee5\u4e0b ' + pct(1 - t) + '</b>\uff08\u2264' + (u[0]*100).toFixed(0) +
+      '<b>2 \u7403\u53ca\u4ee5\u4e0b ' + pct(1 - t) + '</b>\uff08\u2264' + (u[0]*100).toFixed(0) +
       '% \u8fd9\u4e00\u6863\uff09<br>' +
       '\u5168\u5e93\u540c\u7c7b ' + u[1] + ' \u573a\u5b9e\u6d4b\uff1a\u53ea\u6709 <b>' + u[2].toFixed(1) +
       '%</b> \u6ca1\u8fc7\u4e09\u7403\u3000' +
       '<span style="color:#A0524A">\u6a21\u578b\u5bf9\u300c\u5c0f\u7403\u300d\u5224\u65ad\u5f88\u5f31\uff0c\u63a5\u8fd1\u63b7\u786c\u5e01</span></div>';
   })()}
-  <div class="tip" style="color:#607080">「3 球以上还是以下」是全模型相对最准的判断——门槛越高越准，但超过 65% 后不再提升</div>
+  <div class="tip" style="color:#607080">「3 球及以上 / 2 球及以下」是全模型相对最准的判断——门槛越高越准，但超过 65% 后不再提升</div>
   ${(function(){
     const kb = knnOdds(meta.eu, 30);
     if (!kb) return '';
@@ -1002,7 +1002,7 @@ function render(r,meta){
       'border-radius:9px;border:1px solid #E4EAF2;line-height:1.85">' +
       '<b style="color:#0B1F33">史上最接近的 ' + kb.n + ' 场</b>' +
       '（按隐含概率算距离，最大差 ' + (kb.maxDist*100).toFixed(1) + 'pp）：<br>' +
-      '场均 <b>' + kb.avg.toFixed(2) + '</b> 球　3球以上 <b>' + Math.round(kb.over*100) + '%</b>　' +
+      '场均 <b>' + kb.avg.toFixed(2) + '</b> 球　3球及以上 <b>' + Math.round(kb.over*100) + '%</b>　' +
       '0-1球 <b>' + Math.round(kb.low*100) + '%</b><br>' +
       '主胜 <b>' + Math.round(kb.home*100) + '%</b>　平 <b>' + Math.round(kb.draw*100) + '%</b>　' +
       '客胜 <b>' + Math.round(kb.away*100) + '%</b><br>' +
@@ -1017,14 +1017,14 @@ function render(r,meta){
     return '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#F7F9FC;' +
       'border:1px solid #E4EAF2;border-radius:9px;line-height:1.8;color:#33506B">' +
       '<b>怎么读下面这张表</b><br>' +
-      '先说大方向：这场进球更可能落在 <b>三球' + (big ? '以上' : '以下') + '（' +
+      '先说大方向：这场进球更可能落在 <b>' + (big ? '以上' : '以下') + '（' +
       Math.round((big ? sum3 : 1 - sum3) * 100) + '%）</b>。<br>' +
       '再单看某一档：<b>' + r.peak + ' 球（' + Math.round((r.tg[r.peak]||0) * 100) + '%）</b>最高——' +
       '但那只是一个格子。<br>' +
       '<span style="color:#8A95A3">' +
       (big
-        ? '「三球以上」是所有 3、4、5… 球加起来（' + Math.round(sum3 * 100) + '%），所以它一定比单个档大。'
-        : '「三球以下」是 0、1、2 球加起来（' + Math.round((1 - sum3) * 100) + '%），所以它一定比单个档大。') +
+        ? '「三球及以上」是所有 3、4、5… 球加起来（' + Math.round(sum3 * 100) + '%），所以它一定比单个档大。'
+        : '「两球及以下」是 0、1、2 球加起来（' + Math.round((1 - sum3) * 100) + '%），所以它一定比单个档大。') +
       '<br>' +
       '两个说法都对，问的不是同一件事。</span></div>';
   })()}
@@ -1352,7 +1352,7 @@ function render(r,meta){
       const best = Math.max(m1, m2, m3);
       let tag;
       if (best === m1) tag = '赢一球最常见（' + m1.toFixed(1) + '%）——<b>让平不是冷门</b>';
-      else if (best === m3) tag = '赢三球以上最常见（' + m3.toFixed(1) + '%）——大胜才是主流';
+      else if (best === m3) tag = '赢三球及以上最常见（' + m3.toFixed(1) + '%）——大胜才是主流';
       else tag = '赢两球最常见（' + m2.toFixed(1) + '%）';
       return '<div class="tip" style="margin-top:9px;padding:9px 11px;background:#F7F9FC;' +
         'border:1px solid #E4EAF2;border-radius:9px;line-height:1.8">' +
@@ -1523,9 +1523,9 @@ function cloudCard() {
       const over = (typeof x.over === 'number') ? x.over : null;
       let agree = '';
       if (over !== null) {
-        if (over >= 0.55 && sum >= 2.6) agree = '<span style="color:#2E7D32">· 与「三球以上」一致</span>';
+        if (over >= 0.55 && sum >= 2.6) agree = '<span style="color:#2E7D32">· 与「三球及以上」一致</span>';
         else if (over >= 0.55 && sum < 2.6) agree = '<span style="color:#C79100">· 模型看大，但两队近期偏少球</span>';
-        else if (over < 0.50 && sum < 2.6) agree = '<span style="color:#2E7D32">· 与「三球以下」一致</span>';
+        else if (over < 0.50 && sum < 2.6) agree = '<span style="color:#2E7D32">· 与「两球及以下」一致</span>';
         else if (over < 0.50 && sum >= 2.6) agree = '<span style="color:#C79100">· 模型看小，但两队近期偏多球</span>';
       }
       h += '<div class="tip" style="padding:0 2px 8px;font-size:11px;color:#8A95A3;line-height:1.75">' +

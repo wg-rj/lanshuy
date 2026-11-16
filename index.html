@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v97</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v102</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -1009,10 +1009,68 @@ function render(r,meta){
       '<span style="color:#7A8797">这是真事发生过的分布，不是模型算的</span></div>';
   })()}
   <div class="tip">λ主 ${r.lh.toFixed(2)}　λ客 ${r.la.toFixed(2)}　期望 ${(r.lh+r.la).toFixed(2)} 球</div>
-  <div class="tip" style="margin-top:10px;color:#7A8797">精确进球分布（峰值 ${gLabel(r.peak)} 球，但这个只有 23% 准）</div>
+  ${(function(){
+    const sum3 = (r.tg[3]||0)+(r.tg[4]||0)+(r.tg[5]||0)+(r.tg[6]||0)+(r.tg[7]||0);
+    const big = sum3 >= 0.5;
+    const v3 = (r.tg[3]||0);
+    const bigger = (sum3 - v3);
+    return '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#F7F9FC;' +
+      'border:1px solid #E4EAF2;border-radius:9px;line-height:1.8;color:#33506B">' +
+      '<b>怎么读下面这张表</b><br>' +
+      '先说大方向：这场进球更可能落在 <b>三球' + (big ? '以上' : '以下') + '（' +
+      Math.round((big ? sum3 : 1 - sum3) * 100) + '%）</b>。<br>' +
+      '再单看某一档：<b>' + r.peak + ' 球（' + Math.round((r.tg[r.peak]||0) * 100) + '%）</b>最高——' +
+      '但那只是一个格子。<br>' +
+      '<span style="color:#8A95A3">' +
+      (big
+        ? '「三球以上」是所有 3、4、5… 球加起来（' + Math.round(sum3 * 100) + '%），所以它一定比单个档大。'
+        : '「三球以下」是 0、1、2 球加起来（' + Math.round((1 - sum3) * 100) + '%），所以它一定比单个档大。') +
+      '<br>' +
+      '两个说法都对，问的不是同一件事。</span></div>';
+  })()}
+  <div class="tip" style="margin-top:10px;color:#7A8797">精确进球分布（点亮的格子是单档最高）</div>
   <div class="three">${r.tg.map((v,i)=>`<div class="${i===r.peak?'on':''}"><div class="v">${pct(v)}</div><div class="k">${i===7?'7+':i}</div></div>`).join('')}</div>
   </div>`;
-  h+=`<div class="card"><div class="title"><span>比分</span><span class="badge b-vlow">参考 · 命中约 13%</span></div>
+  h+=`<div class="card"><div class="title"><span>比分</span>${(function(){
+    const tp = top5.length ? top5[0][0] : 0;
+    const t2 = top5.length > 1 ? top5[1][0] : 0;
+    const htd = (r.hf[3]||0) + (r.hf[4]||0) + (r.hf[5]||0);
+    if (t2 >= 0.12)
+      return '<span class="badge b-high">两个都看 · 历史 30%</span>';
+    if (tp >= 0.12 && htd >= 0.38)
+      return '<span class="badge b-high">较像样 · 历史 15%</span>';
+    if (tp >= 0.11)
+      return '<span class="badge b-low">参考 · 历史 14%</span>';
+    return '<span class="badge b-vlow">参考 · 历史 13%</span>';
+  })()}</div>
+  ${(function(){
+    const tp = top5.length ? top5[0][0] : 0;
+    const t2 = top5.length > 1 ? top5[1][0] : 0;
+    const s1 = top5.length ? top5[0][1] : '';
+    const s2 = top5.length > 1 ? top5[1][1] : '';
+    const htd = (r.hf[3]||0) + (r.hf[4]||0) + (r.hf[5]||0);
+    if (t2 >= 0.12) {
+      return '<div class="tip" style="padding:9px 11px;background:#EAF5EC;' +
+        'border:1px solid #CBE5D0;border-radius:9px;line-height:1.75;color:#2E7D32">' +
+        '✓ <b>两个比分都值得看</b><br>' +
+        '① <b>' + s1 + '</b> ' + pct(tp) + '　② <b>' + s2 + '</b> ' + pct(t2) +
+        '（次名也 ≥12%）<br>' +
+        '<span style="color:#5A8F62">这类场次 1,170 场历史实测：给这两个，命中 <b>30.1%</b>' +
+        '；只给第一个是 13.3%。<br>换成前 3 个也才 32%，所以两个就够。</span></div>';
+    }
+    const good = (tp >= 0.12 && htd >= 0.38);
+    return '<div class="tip" style="padding:8px 11px;background:' +
+      (good ? '#EAF5EC' : '#F7F9FC') + ';border:1px solid ' +
+      (good ? '#CBE5D0' : '#E4EAF2') + ';border-radius:9px;line-height:1.7;color:' +
+      (good ? '#2E7D32' : '#607080') + '">' +
+      (good
+        ? '✓ <b>这场比分比平时值得看一眼</b>：首选 ' + pct(tp) + '（≥12%），' +
+          '半场平 ' + pct(htd) + '（≥38%）——这类 730 场历史命中 <b>15.1%</b>。'
+        : '普通场次：首选 ' + pct(tp) + '，次名 ' + pct(t2) +
+          '（不到 12%，第二名差得远）。这类历史命中 ' +
+          (tp >= 0.11 ? '14%' : '13%') + '——比随便猜（8%）好，但还是只有一成多。') +
+      '</div>';
+  })()}
   <div class="tip">先看「谁赢」那组的合计，再在那个组里挑比分——单个比分最高不等于那个结果最可能</div>
   ${(function(){
     const G = CUR.m, KM = G.length;
@@ -1150,6 +1208,45 @@ function render(r,meta){
       '<b style="color:#0B1F33">强队场次（最低赔率 ' + band.lo.toFixed(1) + '-' +
       band.hi.toFixed(1) + '，' + band.n + ' 场）历史最常见比分</b><br>' + hist +
       '<br><span style="color:#607080">' + tail + '</span></div>';
+  })()}
+  ${(function(){
+    const rec = (meta && meta.recent) || window._REC || null;
+    if (!rec || !rec.home || !rec.away) {
+      return '<div class="tip" style="margin-top:9px;padding:8px 11px;background:#F7F9FC;' +
+        'border:1px dashed #D6DEE8;border-radius:9px;color:#8A95A3;line-height:1.7">' +
+        '状态推算比分：<b>需要近5场数据</b>——从「预测」页拉取过官网数据，或从云端预测点进来才会有。</div>';
+    }
+    const stat = function (lst) {
+      if (!lst || !lst.length) return null;
+      let gf = 0, ga = 0, n = 0;
+      for (const y of lst) {
+        if (!y || !y.score) continue;
+        const a = +y.score[0], b = +y.score[1];
+        if (!isFinite(a) || !isFinite(b)) continue;
+        const home = (y.venue === '主');
+        gf += home ? a : b; ga += home ? b : a; n++;
+      }
+      return n ? { gf: gf / n, ga: ga / n, n: n } : null;
+    };
+    const sh = stat(rec.home), sa = stat(rec.away);
+    if (!sh || !sa) return '';
+    // 状态推算：主队进球 = (主队场均进 + 客队场均失)/2，客队同理
+    const xh = (sh.gf + sa.ga) / 2, xa = (sa.gf + sh.ga) / 2;
+    // 与模型混合各半
+    const mh = (xh + r.lh) / 2, ma = (xa + r.la) / 2;
+    const fh = Math.max(0, Math.round(mh)), fa = Math.max(0, Math.round(ma));
+    const extreme = (sh.gf >= 2.5 && sa.gf <= 1.0);
+    return '<div class="tip" style="margin-top:10px;padding:10px 11px;background:#FBF7EE;' +
+      'border:1px solid #EFE2C8;border-radius:9px;line-height:1.8;color:#8A6D1F">' +
+      '<b>状态推算比分（实验项）</b><br>' +
+      '近5场：主队 进' + sh.gf.toFixed(1) + '/失' + sh.ga.toFixed(1) +
+      '　客队 进' + sa.gf.toFixed(1) + '/失' + sa.ga.toFixed(1) + '<br>' +
+      '按攻防推算 ' + xh.toFixed(2) + ' : ' + xa.toFixed(2) +
+      '，和模型各取一半 → <b style="font-size:16px;color:#8A6D1F">' + fh + ':' + fa + '</b>' +
+      (extreme ? '<br><span style="color:#C0504D">⚠ 两队状态差距大（主队场均 ' + sh.gf.toFixed(1) +
+        ' 球、客队 ' + sa.gf.toFixed(1) + ' 球），历史上这类场次常见 2-0、2-1，不是 3-0 或 4-1</span>' : '') +
+      '<br><span style="color:#A08A4A">这项只是记录实验：全库 6,007 场实测它命中 10.6%，' +
+      '不如模型单独的 12.4%。留着是为了攒数据再看。</span></div>';
   })()}
   <div class="tip">进球峰值是 <b>${gLabel(r.peak)} 球</b>（与上面「总进球」一致）</div></div>`;
   h += marginCard(CUR.m);
@@ -1403,6 +1500,35 @@ function cloudCard() {
            : x.score) + '</span>' +
          '<span style="width:46px;text-align:right;color:' +
          (x.draw >= 0.28 ? '#7B3FA0' : '#94A1B2') + '">' + Math.round(x.draw * 100) + '%</span></div>';
+    // 近5场状态 + 与模型是否一致
+    (function () {
+      const rc = x.recent || {};
+      const avg = function (lst) {
+        if (!lst || !lst.length) return null;
+        let g = 0, n = 0;
+        for (const y of lst) {
+          if (!y || !y.score) continue;
+          const a = +y.score[0], b = +y.score[1];
+          if (!isFinite(a) || !isFinite(b)) continue;
+          g += (y.venue === '主') ? a : b; n++;
+        }
+        return n ? { avg: g / n, n: n } : null;
+      };
+      const fh = avg(rc.home), fa = avg(rc.away);
+      if (!fh || !fa) return;
+      const sum = fh.avg + fa.avg;
+      const over = (typeof x.over === 'number') ? x.over : null;
+      let agree = '';
+      if (over !== null) {
+        if (over >= 0.55 && sum >= 2.6) agree = '<span style="color:#2E7D32">· 与「三球以上」一致</span>';
+        else if (over >= 0.55 && sum < 2.6) agree = '<span style="color:#C79100">· 模型看大，但两队近期偏少球</span>';
+        else if (over < 0.50 && sum < 2.6) agree = '<span style="color:#2E7D32">· 与「三球以下」一致</span>';
+        else if (over < 0.50 && sum >= 2.6) agree = '<span style="color:#C79100">· 模型看小，但两队近期偏多球</span>';
+      }
+      h += '<div class="tip" style="padding:0 2px 8px;font-size:11px;color:#8A95A3">' +
+        '近5场场均进球：' + fh.avg.toFixed(1) + ' / ' + fa.avg.toFixed(1) +
+        '（合计 ' + sum.toFixed(1) + '）' + agree + '</div>';
+    })();
   }
   h += '<button class="mini" style="margin-top:10px" onclick="cloudReload()">刷新</button>';
   h += '</div>';
@@ -3739,6 +3865,9 @@ window.pickOdds=function(i){
     window._JC = m.jcTxt ? m.jcTxt.split('/').map(Number) : null;
     if (window._JC && !(window._JC.length === 3 && window._JC.every(function(x){return x > 1;}))) window._JC = null;
   } catch (e) { window._JC = null; }
+  // 记住近期战绩（近5场），用于「状态推算比分」
+  try { window._REC = (m && m.recent) ? m.recent : (window._CLOUD_REC || null); }
+  catch (e) { window._REC = null; }
   document.getElementById('h').value=m.h||'';
   document.getElementById('a').value=m.a||'';
   document.getElementById('hc').value=(m.line===''||m.line==null)?'':m.line;

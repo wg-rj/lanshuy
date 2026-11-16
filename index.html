@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v104</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v107</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -864,6 +864,49 @@ function plainCard(r, meta){
               '单个比分最可能，但本来就只有一成上下——别当真',
               '#607080');
   }
+  // ④ 赢几个（小胜 / 大胜）
+  (function () {
+    let mg2 = null;
+    try { if (typeof marginOf === 'function' && typeof CUR !== 'undefined' && CUR && CUR.m) mg2 = marginOf(CUR.m); } catch (e) { mg2 = null; }
+    if (!mg2) return;
+    const opts = [
+      ['平局', mg2['平'], '#7B3FA0'],
+      ['主队小胜一球', mg2['主1'], '#2E7D32'],
+      ['主队赢两球', mg2['主2'], '#2E7D32'],
+      ['主队大胜三球以上', mg2['主3'], '#2E7D32'],
+      ['客队小胜一球', mg2['客1'], '#B0503A'],
+      ['客队赢两球', mg2['客2'], '#B0503A'],
+      ['客队大胜三球以上', mg2['客3'], '#B0503A'],
+    ];
+    // 跟着 ① 的方向走：只说「如果这个方向成立，赢几个」
+    if (i === 1) {
+      // ① 推荐平局
+      const dr = p[1];
+      h += line('④ 赢几个',
+                '平局 ' + pct(dr),
+                '① 就是平局，所以这里没有「赢几个」——0-0、1-1、2-2 都算平。',
+                '#7B3FA0');
+      return;
+    }
+    const isHome = (i === 0);
+    const w1 = isHome ? mg2['主1'] : mg2['客1'];
+    const w2b = isHome ? mg2['主2'] : mg2['客2'];
+    const w3 = isHome ? mg2['主3'] : mg2['客3'];
+    const teamLab = isHome ? '主队' : '客队';
+    const sumWin = w1 + w2b + w3;
+    const within = sumWin > 0 ? [['小胜一球', w1 / sumWin], ['赢两球', w2b / sumWin],
+                                 ['大胜三球以上', w3 / sumWin]] : [];
+    within.sort(function (a, b) { return b[1] - a[1]; });
+    const top = within[0];
+    const tone = isHome ? '#2E7D32' : '#B0503A';
+    h += line('④ 赢几个',
+              teamLab + '赢的话，多半是「' + top[0] + '」',
+              '如果 ' + teamLab + '赢球（' + pct(sumWin) + '），三档是：<br>' +
+              '小胜一球 ' + pct(w1) + '（占 ' + Math.round((w1 / sumWin) * 100) + '%）　' +
+              '赢两球 ' + pct(w2b) + '　大胜三球以上 ' + pct(w3) +
+              '<br><span style="color:#8A95A3">所以这场更像「' + top[0] + '」的局面。</span>',
+              tone);
+  })();
   h += '<div class="tip" style="margin-top:8px;color:#8A95A3;line-height:1.7">' +
        '这是把市场赔率翻译成人话。赔率越低的那项，市场越看好，' +
        '但「看好」不等于「会中」。</div>';
@@ -1772,15 +1815,28 @@ function marginCard(G) {
 
   h += '<div class="tip" style="margin:0 0 3px;color:#2E7D32"><b>主队赢球时，赢几个</b>' +
        '（这一组合计 ' + pc(sumHome) + '）</div>';
-  h += row('赢 1 球', mg['主1'], '#5B9E5F');
+  h += row('小胜 1 球', mg['主1'], '#5B9E5F');
   h += row('赢 2 球', mg['主2'], '#3C8D40');
-  h += row('赢 3+ 球', mg['主3'], '#2E7D32');
+  h += row('大胜 3+ 球', mg['主3'], '#2E7D32');
 
   h += '<div class="tip" style="margin:10px 0 3px;color:#B0503A"><b>客队赢球时，赢几个</b>' +
        '（这一组合计 ' + pc(sumAway) + '）</div>';
-  h += row('赢 1 球', mg['客1'], '#B08040');
+  h += row('客队小胜 1 球', mg['客1'], '#B08040');
   h += row('赢 2 球', mg['客2'], '#C07040');
-  h += row('赢 3+ 球', mg['客3'], '#C0504D');
+  h += row('大胜 3+ 球', mg['客3'], '#C0504D');
+
+  // 一句话点出「小胜」这一档
+  (function () {
+    const m1 = mg['主1'], m3 = mg['主3'], a1 = mg['客1'], a3 = mg['客3'];
+    const best = Math.max(m1, a1);
+    const big = Math.max(m3, a3);
+    if (best > big && best >= 0.12) {
+      h += '<div class="tip" style="margin-top:8px;padding:8px 11px;background:#F1F7F3;' +
+        'border:1px solid #D5E8DA;border-radius:9px;color:#2E7D32;line-height:1.7">' +
+        '<b>这场最可能是「赢一球」（小胜）</b>：主队小胜 ' + pc(m1) + '、客队小胜 ' + pc(a1) +
+        '，合计 ' + pc(m1 + a1) + '——比「赢 3 球以上」（' + pc(m3 + a3) + '）高得多。</div>';
+    }
+  })();
 
   h += '<div class="tip" style="margin-top:11px;padding:9px 11px;background:#F4F8FC;' +
        'border:1px solid #DCE7F2;border-radius:9px;color:#33506B;line-height:1.75">' +

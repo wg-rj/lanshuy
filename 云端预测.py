@@ -77,6 +77,32 @@ for m in raw:
     hd, hh = m.get("had") or {}, m.get("hhad") or {}
     if not (hd.get("h") and hd.get("d") and hd.get("a")):
         continue
+    # 近期战绩：官网返回里自带 recent / h2h，这里精简后透传
+    def _slim(lst):
+        out = []
+        for x in (lst or [])[:5]:
+            try:
+                sc = x.get("score") or []
+                if len(sc) < 2:
+                    continue
+                out.append({"date": str(x.get("date") or "")[:10],
+                            "opp": str(x.get("opp") or ""),
+                            "venue": str(x.get("venue") or ""),
+                            "score": [int(sc[0]), int(sc[1])]})
+            except Exception:
+                continue
+        return out
+    rc = m.get("recent") or {}
+    h2h = []
+    for x in (m.get("h2h") or [])[:5]:
+        try:
+            sc = x.get("score") or []
+            h2h.append({"date": str(x.get("date") or "")[:10],
+                        "home": str(x.get("home") or ""),
+                        "away": str(x.get("away") or ""),
+                        "score": [int(sc[0]), int(sc[1])]})
+        except Exception:
+            pass
     rows.append({
         "num": m.get("matchNumStr") or "",
         "lg": m.get("leagueAbbName") or "",
@@ -88,6 +114,8 @@ for m in raw:
         "line": hh.get("goalLine") or "",
         "ch": hh.get("h"), "cd": hh.get("d"), "ca": hh.get("a"),
         "jh": hd.get("h"), "jd": hd.get("d"), "ja": hd.get("a"),
+        "recent": {"home": _slim(rc.get("home")), "away": _slim(rc.get("away"))},
+        "h2h": h2h,
     })
 print(f"   在售 {len(rows)} 场")
 if not rows:
@@ -231,11 +259,14 @@ for r in rows:
         "score": f"{best[1]}:{best[2]}", "scoreP": round(float(best[0]), 4),
         "scoreTop": f"{i}:{j}",
         "goals": int(np.argmax(tg)), "g4": round(float(tg[4:].sum()), 4),
+        "over": round(float(tg[3:].sum()), 4),
         "rq": [round(float(x), 4) for x in rp],
         "rqPick": ["让胜", "让平", "让负"][int(np.argmax(rp))],
         "line": line,
         "draw": round(float(ps[1]), 4),
         "ev": round(float(ps[pick]) * float(1 / p0[pick]), 2),
+        "recent": r.get("recent") or {"home": [], "away": []},
+        "h2h": r.get("h2h") or [],
     })
 
 out.sort(key=lambda x: -x["prob"])

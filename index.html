@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v102</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v103</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -1505,14 +1505,17 @@ function cloudCard() {
       const rc = x.recent || {};
       const avg = function (lst) {
         if (!lst || !lst.length) return null;
-        let g = 0, n = 0;
+        let gf = 0, ga = 0, n = 0;
         for (const y of lst) {
           if (!y || !y.score) continue;
           const a = +y.score[0], b = +y.score[1];
           if (!isFinite(a) || !isFinite(b)) continue;
-          g += (y.venue === '主') ? a : b; n++;
+          const home = (y.venue === '主');
+          gf += home ? a : b;
+          ga += home ? b : a;
+          n++;
         }
-        return n ? { avg: g / n, n: n } : null;
+        return n ? { avg: gf / n, ga: ga / n, n: n } : null;
       };
       const fh = avg(rc.home), fa = avg(rc.away);
       if (!fh || !fa) return;
@@ -1525,9 +1528,12 @@ function cloudCard() {
         else if (over < 0.50 && sum < 2.6) agree = '<span style="color:#2E7D32">· 与「三球以下」一致</span>';
         else if (over < 0.50 && sum >= 2.6) agree = '<span style="color:#C79100">· 模型看小，但两队近期偏多球</span>';
       }
-      h += '<div class="tip" style="padding:0 2px 8px;font-size:11px;color:#8A95A3">' +
-        '近5场场均进球：' + fh.avg.toFixed(1) + ' / ' + fa.avg.toFixed(1) +
-        '（合计 ' + sum.toFixed(1) + '）' + agree + '</div>';
+      h += '<div class="tip" style="padding:0 2px 8px;font-size:11px;color:#8A95A3;line-height:1.75">' +
+        '<span style="color:#2E7D32">' + x.h + '</span> 近5场：进 <b>' + fh.avg.toFixed(1) +
+        '</b> / 失 <b>' + (fh.ga).toFixed(1) + '</b>' +
+        '　　<span style="color:#B0503A">' + x.a + '</span> 近5场：进 <b>' + fa.avg.toFixed(1) +
+        '</b> / 失 <b>' + (fa.ga).toFixed(1) + '</b>' +
+        '　（两队场均进球合计 ' + sum.toFixed(1) + '）' + agree + '</div>';
     })();
   }
   h += '<button class="mini" style="margin-top:10px" onclick="cloudReload()">刷新</button>';

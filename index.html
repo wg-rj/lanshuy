@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v107</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v110</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -684,42 +684,53 @@ function verdictCard(r, meta) {
     const jcP = 1 / jc[idx], euP = 1 / euOdds;
     const gap = Math.round((1 - jc[idx] / euOdds) * 100);
 
+    const over3 = (r.tg[3] || 0) + (r.tg[4] || 0) + (r.tg[5] || 0) + (r.tg[6] || 0) + (r.tg[7] || 0);
+    const drawOdds = (meta.eu && meta.eu[1]) ? meta.eu[1] : 0;
+
     let lab, labCls, box, why, advice;
     if (comp < 1.05) {
       lab = '放心'; labCls = '#2E7D32'; box = 'background:#EAF5EC;border:1px solid #CBE5D0';
-      why = '竞彩价和欧赔几乎一样，没做手脚，可以按它的概率看。';
+      why = '两边价格差不多，竞彩没压价。';
       advice = '';
     } else if (comp < 1.13) {
       lab = '正常'; labCls = '#33506B'; box = 'background:#F4F8FC;border:1px solid #DCE7F2';
-      why = '竞彩比欧赔略便宜，属最常见水平，实际低 5~7pp，正常误差。';
+      why = '竞彩便宜了 ' + gap + '%，属正常范围，不算压。';
       advice = '';
-    } else if (euOdds < 1.6) {
-      lab = '谨慎'; labCls = '#8B2E23'; box = 'background:#FDECEA;border:1px solid #F5C6C0';
-      why = '<b>大热门还被竞彩压狠，这是最该防的一种。</b><br>' +
-        '全库同类（欧赔 &lt;1.6 且压缩 ≥1.13）83 场：实际只中 <b>65.1%</b>，' +
-        '而没被压的同类是 <b>76.0%</b>——差了 11 个百分点。';
-      advice = '方向仍是「' + sideName + '」，但 ' + pct(r.maxP) + ' 这个数要打折扣，别当稳的。';
+    } else if (euOdds >= 1.3 && euOdds < 1.6 && drawOdds > 1 && drawOdds <= 4.2 && over3 < 0.5) {
+      lab = '容易被逼平'; labCls = '#8B2E23'; box = 'background:#FDECEA;border:1px solid #F5C6C0';
+      why = '这场集齐了三个坏信号：<br>' +
+        '① 欧赔 ' + euOdds.toFixed(2) + '（不难打的球）<br>' +
+        '② 竞彩压到 ' + jc[idx].toFixed(2) + '，比欧赔便宜 ' + gap + '%<br>' +
+        '③ 平赔只有 ' + drawOdds.toFixed(2) + '，进球预期也低（三球以上 ' + Math.round(over3 * 100) + '%）<br>' +
+        '全库这类 <b>26 场</b>：只有 <b>53.8%</b> 赢，<b>30.8%</b> 打平。';
+      advice = '方向还是「' + sideName + '」，但这场真的可能平，别当稳。';
+    } else if (euOdds >= 1.3 && euOdds < 1.6) {
+      lab = '压了，但不危险'; labCls = '#8A6D1F'; box = 'background:#FBF7EE;border:1px solid #EFE2C8';
+      why = '大热门被压（便宜 ' + gap + '%），但平赔 ' + (drawOdds > 0 ? drawOdds.toFixed(2) : '—') +
+        '、三球以上 ' + Math.round(over3 * 100) + '%——不像容易被逼平的样子。<br>' +
+        '全库这类 <b>107 场</b>：<b>66.4%</b> 赢。';
+      advice = '';
     } else if (euOdds < 2.0) {
-      lab = '略谨慎'; labCls = '#8A6D1F'; box = 'background:#FBF7EE;border:1px solid #EFE2C8';
-      why = '竞彩压了，但没到大热门那种程度。<br>' +
-        '全库同类（欧赔 1.6-2.0 且压缩 ≥1.13）298 场：实际 49.7%，' +
-        '没被压的同类 54.2%——低 4.5 个百分点。';
-      advice = '方向可以保留，但别加大把握。';
+      lab = '略压'; labCls = '#8A6D1F'; box = 'background:#FBF7EE;border:1px solid #EFE2C8';
+      why = '竞彩便宜 ' + gap + '%，压了一点。<br>' +
+        '全库同类 491 场：实际 49.9%，没被压的 53.5%——低 3.6 个百分点，不算大事。';
+      advice = '';
     } else {
-      lab = '可以参考'; labCls = '#2E7D32'; box = 'background:#EAF5EC;border:1px solid #CBE5D0';
-      why = '<b>赔率不算低还被竞彩压，这类它反而准。</b><br>' +
-        '全库同类（欧赔 ≥2.0 且压缩 ≥1.13）351 场：实际比没被压的高 5~7 个百分点（竞彩可能知道点东西）。';
-      advice = '这个方向可以比平时更信一点。';
+      lab = '正常'; labCls = '#33506B'; box = 'background:#F4F8FC;border:1px solid #DCE7F2';
+      why = '赔率不低（' + euOdds.toFixed(2) + '）还被压 ' + gap + '%，这类历史上没啥影响。';
+      advice = '';
     }
 
     h += '<div style="margin-top:7px;padding:10px 12px;' + box + ';border-radius:9px;line-height:1.8">' +
          '<div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">' +
          '<span style="font-size:13px;color:#7A8797">竞彩可信度</span>' +
          '<span style="font-size:19px;font-weight:700;color:' + labCls + '">' + lab + '</span></div>' +
-         '<span style="color:#607080">' + sideName + '：竞彩 ' + jc[idx].toFixed(2) +
-         '　欧赔 ' + euOdds.toFixed(2) +
-         (gap > 0 ? '　（便宜 ' + gap + '%）' : '') +
-         '　竞彩说 ' + pct(jcP) + '，欧赔说 ' + pct(euP) + '</span><br>' +
+         '<span style="color:#607080">' + sideName + '：欧赔 ' + euOdds.toFixed(2) +
+         ' → 竞彩 ' + jc[idx].toFixed(2) +
+         '　押 100 元：欧赔赚 ' + Math.round((euOdds - 1) * 100) +
+         ' 元，竞彩只赚 ' + Math.round((jc[idx] - 1) * 100) + ' 元' +
+         (gap > 0 ? '<br>（竞彩比欧赔便宜 ' + gap + '%，这就是「压缩比 ' + comp.toFixed(2) + '」）' : '') +
+         '</span><br>' +
          '<span style="color:#8A95A3">' + why + '</span>' +
          (advice ? '<br><b style="color:' + labCls + '">→ ' + advice + '</b>' : '') +
          '</div>';
@@ -881,7 +892,7 @@ function plainCard(r, meta){
     // 跟着 ① 的方向走：只说「如果这个方向成立，赢几个」
     if (i === 1) {
       // ① 推荐平局
-      const dr = p[1];
+      const dr = P[1];
       h += line('④ 赢几个',
                 '平局 ' + pct(dr),
                 '① 就是平局，所以这里没有「赢几个」——0-0、1-1、2-2 都算平。',
@@ -1102,17 +1113,30 @@ function render(r,meta){
         '；只给第一个是 13.3%。<br>换成前 3 个也才 32%，所以两个就够。</span></div>';
     }
     const good = (tp >= 0.12 && htd >= 0.38);
+    // 同一结果里，最接近的那个比分差多少
+    const dirOf = function (s) {
+      const q = String(s).split(':');
+      const a = +q[0], b = +q[1];
+      return a > b ? 0 : (a === b ? 1 : 2);
+    };
+    const dNames = ['主队赢', '平局', '客队赢'];
+    const sibs = top5.filter(function (x) { return x[1] !== s1 && dirOf(x[1]) === dirOf(s1); });
+    const sb = sibs.length ? sibs[0] : null;
+    const sibLine = (sb && (tp - sb[0]) <= 0.02)
+      ? '<br><span style="color:#8A6D1F">但同样是「' + dNames[dirOf(s1)] + '」的 <b>' +
+        sb[1] + '</b> 只低 ' + ((tp - sb[0]) * 100).toFixed(1) +
+        ' 个百分点——两个差不多，别当 ' + s1 + ' 就稳。</span>'
+      : '';
     return '<div class="tip" style="padding:8px 11px;background:' +
       (good ? '#EAF5EC' : '#F7F9FC') + ';border:1px solid ' +
       (good ? '#CBE5D0' : '#E4EAF2') + ';border-radius:9px;line-height:1.7;color:' +
       (good ? '#2E7D32' : '#607080') + '">' +
       (good
-        ? '✓ <b>这场比分比平时值得看一眼</b>：首选 ' + pct(tp) + '（≥12%），' +
+        ? '✓ <b>这场比分比平时值得看一眼</b>：首选 <b>' + s1 + '</b> ' + pct(tp) + '（≥12%），' +
           '半场平 ' + pct(htd) + '（≥38%）——这类 730 场历史命中 <b>15.1%</b>。'
-        : '普通场次：首选 ' + pct(tp) + '，次名 ' + pct(t2) +
-          '（不到 12%，第二名差得远）。这类历史命中 ' +
-          (tp >= 0.11 ? '14%' : '13%') + '——比随便猜（8%）好，但还是只有一成多。') +
-      '</div>';
+        : '这是单个最高：' + s1 + ' ' + pct(tp) + '，次名 ' + s2 + ' ' + pct(t2) +
+          '。单个比分本来只有一成多（随便猜是 8%）。') +
+      sibLine + '</div>';
   })()}
   <div class="tip">先看「谁赢」那组的合计，再在那个组里挑比分——单个比分最高不等于那个结果最可能</div>
   ${(function(){
@@ -1435,6 +1459,27 @@ function render(r,meta){
     })()}
     </div>`;
   } else {CUR.hc=null;}
+  // 能力边界：把「哪些能信」说清楚
+  h += `<div class="card"><div class="title"><span>这个 App 能信什么</span></div>
+  <div class="tip" style="line-height:1.9">
+  <b style="color:#2E7D32">能信的只有两样</b><br>
+  ① <b>进球判断</b>：模型给三球及以上 <b>≥60%</b> 时，历史真的过了三球 <b>76%</b>；<br>
+  　　但给 <b>50~60%</b> 时只有 <b>58%</b>——和掷硬币差不多，别当信号。<br>
+  ② <b>把握度档位</b>：标「高」的历史中 <b>89%</b>，标「很低」的只有 <b>48%</b>。<br>
+  　　这一档最有用——它告诉你哪场别当回事。
+  </div>
+  <div class="tip" style="line-height:1.9;margin-top:6px">
+  <b style="color:#B0503A">别当真的三样</b><br>
+  ① <b>方向（谁赢）</b>：就是欧赔去水后取最大，1,562 场实测和「买赔率最低那项」<b>100% 相同</b>。<br>
+  　　它反映市场，不是模型预测。<br>
+  ② <b>比分</b>：单个比分约 <b>12~13%</b>，和瞎猜的 8~13% 差不多。给的是参考，不是答案。<br>
+  ③ <b>让球方向</b>：−1 盘历史命中只有 <b>38%</b>（117 场）——结构上吃了亏，别单独当推荐。<br>
+  　　但「赢几个」的<b>分布</b>是准的，可以看。
+  </div>
+  <div class="tip" style="line-height:1.9;margin-top:6px;color:#7A8797">
+  半全场约 <b>40%</b>（基准 32%），有一点本事，但也就这样。<br>
+  这个 App 是「帮你看懂一场球」的，不是「帮你赢钱」的。
+  </div></div>`;
   h+=`<button class="go" id="keep" style="background:#2E7D32">存进台账</button>`;
   document.getElementById('out').innerHTML=h;
   document.getElementById('keep').onclick=()=>{

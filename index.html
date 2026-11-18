@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v110</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v111</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -649,6 +649,20 @@ function verdictCard(r, meta) {
        '<span style="color:#607080">全库同档实测 ' + (base ? Math.round(base*100) + '%' : '—') +
        (lt ? '　·　我们台账 ' + lt.hit + '/' + lt.n + ' = ' + Math.round(lt.rate*100) + '%' : '') +
        '</span>';
+  // 前两名太近：赔率一动方向就翻
+  (function () {
+    const p2 = r.p.slice().sort(function (a, b) { return b - a; })[1];
+    if (r.maxP - p2 < 0.06) {
+      h += '<div style="margin-top:6px;padding:8px 10px;background:#FBF7EE;' +
+        'border:1px solid #EFE2C8;border-radius:8px;color:#8A6D1F;line-height:1.75">' +
+        '⚠ <b>方向不稳</b>：第一名只领先第二名 <b>' +
+        Math.round((r.maxP - p2) * 100) + ' 个百分点</b>。<br>' +
+        '赔率在临近开赛前还会动，<b>动一动这个方向就可能翻</b>——' +
+        '别当确定的事。<br>' +
+        '<span style="color:#A08A4A">（昨晚丹麦 vs 挪威就是这样：赛前算主胜，' +
+        '终盘赔率一变算客胜，结果客胜）</span></div>';
+    }
+  })();
   // 首选是否过半：全库 1,562 场实测，分水岭很明显
   if (r.maxP < 0.5) {
     const rest = 1 - r.maxP;
@@ -1068,10 +1082,23 @@ function render(r,meta){
     const big = sum3 >= 0.5;
     const v3 = (r.tg[3]||0);
     const bigger = (sum3 - v3);
-    return '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#F7F9FC;' +
+    const useTxt = sum3 >= 0.60
+      ? '这场 <b style="color:#2E7D32">可以当信号</b>：模型给 ' + Math.round(sum3 * 100) +
+        '%，台账 ≥60% 那档实际 76.4% 真的过了三球。'
+      : (sum3 >= 0.50
+        ? '这场 <b style="color:#8A6D1F">不建议当信号</b>：模型给 ' + Math.round(sum3 * 100) +
+          '%，但 50~60% 那档台账只有 58.2%——和掷硬币差不多。'
+        : '这场 <b style="color:#2E7D32">可以当信号（反向）</b>：模型给 ' + Math.round(sum3 * 100) +
+          '%，不足三球的可能性大。');
+    return '<div class="tip" style="margin-top:10px;padding:9px 11px;background:' +
+      (sum3 >= 0.6 || sum3 < 0.5 ? '#EAF5EC' : '#FBF7EE') +
+      ';border:1px solid ' + (sum3 >= 0.6 || sum3 < 0.5 ? '#CBE5D0' : '#EFE2C8') +
+      ';border-radius:9px;line-height:1.8;color:' +
+      (sum3 >= 0.6 || sum3 < 0.5 ? '#2E7D32' : '#8A6D1F') + '">' + useTxt + '</div>' +
+      '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#F7F9FC;' +
       'border:1px solid #E4EAF2;border-radius:9px;line-height:1.8;color:#33506B">' +
       '<b>怎么读下面这张表</b><br>' +
-      '先说大方向：这场进球更可能落在 <b>' + (big ? '以上' : '以下') + '（' +
+      '先说大方向：这场进球更可能落在 <b>' + (big ? '三球及以上' : '两球及以下') + '（' +
       Math.round((big ? sum3 : 1 - sum3) * 100) + '%）</b>。<br>' +
       '再单看某一档：<b>' + r.peak + ' 球（' + Math.round((r.tg[r.peak]||0) * 100) + '%）</b>最高——' +
       '但那只是一个格子。<br>' +
@@ -1109,8 +1136,10 @@ function render(r,meta){
         '✓ <b>两个比分都值得看</b><br>' +
         '① <b>' + s1 + '</b> ' + pct(tp) + '　② <b>' + s2 + '</b> ' + pct(t2) +
         '（次名也 ≥12%）<br>' +
-        '<span style="color:#5A8F62">这类场次 1,170 场历史实测：给这两个，命中 <b>30.1%</b>' +
-        '；只给第一个是 13.3%。<br>换成前 3 个也才 32%，所以两个就够。</span></div>';
+        '<span style="color:#5A8F62">这类场次全库 1,170 场实测：给这两个，命中 <b>30.1%</b>' +
+        '；只给第一个是 13.3%。<br>换成前 3 个也才 32%，所以两个就够。<br>' +
+        '<span style="color:#A08A4A">（注：我们台账这类只有 18 场、中了 11%，' +
+        '样本太小，先别全信 30%）</span></span></div>';
     }
     const good = (tp >= 0.12 && htd >= 0.38);
     // 同一结果里，最接近的那个比分差多少

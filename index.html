@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v118</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v119</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -710,13 +710,20 @@ function verdictCard(r, meta) {
       lab = '正常'; labCls = '#33506B'; box = 'background:#F4F8FC;border:1px solid #DCE7F2';
       why = '竞彩便宜了 ' + gap + '%，属正常范围，不算压。';
       advice = '';
-    } else if (comp < 1.13 && idx !== 1) {
-      // 1.08-1.13：全库 7,151 场实测，这是唯一「压了反而更准」的区间
+    } else if (comp < 1.13 && idx !== 1 && euOdds >= 2.2) {
+      // 只有「不算大热门 + 被压 8~13%」才有额外准头
       lab = '略可信'; labCls = '#2E7D32'; box = 'background:#EAF5EC;border:1px solid #CBE5D0';
-      why = '竞彩把这项压了 <b>' + gap + '%</b>，不算狠，但刚好落在「压得有用」的区间。<br>' +
-        '全库实测：主胜这样压的 2,198 场，实际出 <b>53.2%</b>（平常 43.5%）；' +
-        '客胜这样压的 1,650 场，实际出 <b>41.5%</b>（平常 31.5%）。';
+      why = '竞彩把这项压了 <b>' + gap + '%</b>，而这项的欧赔是 ' + euOdds.toFixed(2) +
+        '——不算大热门。<br>' +
+        '全库控制赔率后实测：欧赔 2.2-2.8 这样压的 379 场，实际出 <b>41.4%</b>' +
+        '（没压的 35.8%）；2.8 以上的 154 场，实际 <b>35.1%</b>（没压的 26.6%）。';
       advice = '方向上可以比平时稍微当真一点——但也只是「稍微」。';
+    } else if (comp < 1.13) {
+      lab = '正常'; labCls = '#33506B'; box = 'background:#F4F8FC;border:1px solid #DCE7F2';
+      why = '竞彩便宜了 ' + gap + '%，属正常范围。<br>' +
+        '<span style="color:#8A7B4A">注意：大热门（欧赔 &lt;2.2）就算被压 8~13%，' +
+        '历史上也没有额外准头——这条只在欧赔 ≥2.2 时成立。</span>';
+      advice = '';
     } else if (comp >= 1.13 && idx === 1) {
       lab = '平局别当信号'; labCls = '#8A6D1F'; box = 'background:#FBF7EE;border:1px solid #EFE2C8';
       why = '<b>平局被压狠，这条刚好是反的。</b><br>' +
@@ -1074,10 +1081,10 @@ function render(r,meta){
       if (meta.jc && meta.jc.length === 3) {
         const idx = P.indexOf(Math.max(...P));
         const comp = meta.eu[idx] / meta.jc[idx];
-        if (comp >= 1.08 && comp < 1.13 && idx !== 1) {
-          sigs.push(['竞彩', '压缩比 ' + comp.toFixed(2) + '　' + names[idx] + '被压 ' +
+        if (comp >= 1.08 && comp < 1.13 && idx !== 1 && meta.eu[idx] >= 2.2) {
+          sigs.push(['竞彩', names[idx] + '的赔率被压了 ' +
             Math.round((1 - meta.jc[idx] / meta.eu[idx]) * 100) + '%',
-            '这类历史上确实更准（主胜 53.2%）']);
+            '这类「不算大热门 + 被压」的场次，实际比标价的准 5~8 个百分点']);
         }
       }
     } catch (e) { }

@@ -337,7 +337,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v111</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v118</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -706,10 +706,23 @@ function verdictCard(r, meta) {
       lab = '放心'; labCls = '#2E7D32'; box = 'background:#EAF5EC;border:1px solid #CBE5D0';
       why = '两边价格差不多，竞彩没压价。';
       advice = '';
-    } else if (comp < 1.13) {
+    } else if (comp < 1.08) {
       lab = '正常'; labCls = '#33506B'; box = 'background:#F4F8FC;border:1px solid #DCE7F2';
       why = '竞彩便宜了 ' + gap + '%，属正常范围，不算压。';
       advice = '';
+    } else if (comp < 1.13 && idx !== 1) {
+      // 1.08-1.13：全库 7,151 场实测，这是唯一「压了反而更准」的区间
+      lab = '略可信'; labCls = '#2E7D32'; box = 'background:#EAF5EC;border:1px solid #CBE5D0';
+      why = '竞彩把这项压了 <b>' + gap + '%</b>，不算狠，但刚好落在「压得有用」的区间。<br>' +
+        '全库实测：主胜这样压的 2,198 场，实际出 <b>53.2%</b>（平常 43.5%）；' +
+        '客胜这样压的 1,650 场，实际出 <b>41.5%</b>（平常 31.5%）。';
+      advice = '方向上可以比平时稍微当真一点——但也只是「稍微」。';
+    } else if (comp >= 1.13 && idx === 1) {
+      lab = '平局别当信号'; labCls = '#8A6D1F'; box = 'background:#FBF7EE;border:1px solid #EFE2C8';
+      why = '<b>平局被压狠，这条刚好是反的。</b><br>' +
+        '全库平局压缩 ≥1.13 的 212 场：实际打平只有 <b>21.2%</b>，' +
+        '而平局整体是 25.0%——压得越狠，反而越少打平。';
+      advice = '别因为「竞彩压平局」就往平局上想。';
     } else if (euOdds >= 1.3 && euOdds < 1.6 && drawOdds > 1 && drawOdds <= 4.2 && over3 < 0.5) {
       lab = '容易被逼平'; labCls = '#8B2E23'; box = 'background:#FDECEA;border:1px solid #F5C6C0';
       why = '这场集齐了三个坏信号：<br>' +
@@ -884,10 +897,48 @@ function plainCard(r, meta){
             (big ? ' 真的过了三球' : ' 真的不足三球'),
             goalTone);
   if (t1) {
-    h += line('③ 比分',
-              t1[1] + ' ' + pct(t1[0]),
-              '单个比分最可能，但本来就只有一成上下——别当真',
-              '#607080');
+    // 先说方向，再说比分（和「几球」的读法一致）
+    let dirTop = null, dirTop2 = null, dirName = NM[i];
+    try {
+      const Gm = (typeof CUR !== 'undefined' && CUR && CUR.m) ? CUR.m : null;
+      if (Gm) {
+        const cells = [];
+        for (let x = 0; x < Gm.length; x++) {
+          for (let y = 0; y < Gm.length; y++) {
+            const o = x > y ? 0 : (x === y ? 1 : 2);
+            if (o !== i) continue;
+            cells.push([Gm[x][y], x, y]);
+          }
+        }
+        cells.sort(function (a, b) { return b[0] - a[0]; });
+        if (cells.length) {
+          dirTop = [cells[0][1], cells[0][2], cells[0][0]];
+          if (cells.length > 1) dirTop2 = [cells[1][1], cells[1][2], cells[1][0]];
+        }
+      }
+    } catch (e) { dirTop = null; }
+    if (dirTop) {
+      const ds = dirTop[0] + ':' + dirTop[1];
+      const ds2 = dirTop2 ? dirTop2[0] + ':' + dirTop2[1] + ' ' + pct(dirTop2[2]) : '';
+      // 全局最高是否为「方向内最高」
+      const sameAsTop = (ds === t1[1]);
+      h += line('③ 比分',
+                '按「' + dirName + '」走：' + ds + ' ' + pct(dirTop[2]),
+                '先定方向，再在这个方向里挑比分。<br>' +
+                (ds2 ? '次选 ' + ds2 + '。' : '') +
+                (sameAsTop
+                  ? '　这也是全部比分里最高的一个。'
+                  : '　<span style="color:#8A6D1F">全局最高是 ' + t1[1] + ' ' + pct(t1[0]) +
+                    '，但那是' + NM[(+t1[1].split(':')[0] > +t1[1].split(':')[1] ? 0 :
+                      (+t1[1].split(':')[0] === +t1[1].split(':')[1] ? 1 : 2))] +
+                    '——和方向对不上。</span>'),
+                '#607080');
+    } else {
+      h += line('③ 比分',
+                t1[1] + ' ' + pct(t1[0]),
+                '单个比分最可能，但本来就只有一成上下——别当真',
+                '#607080');
+    }
   }
   // ④ 赢几个（小胜 / 大胜）
   (function () {
@@ -924,13 +975,68 @@ function plainCard(r, meta){
     within.sort(function (a, b) { return b[1] - a[1]; });
     const top = within[0];
     const tone = isHome ? '#2E7D32' : '#B0503A';
+
+    // 这一档具体摊在哪些比分上（必须在 top 之后算）
+    let catNote = '';
+    try {
+      const Gm = (typeof CUR !== 'undefined' && CUR && CUR.m) ? CUR.m : null;
+      if (Gm && top) {
+        const isSmall = (top[0] === '小胜一球');
+        const isTwo = (top[0] === '赢两球');
+        let bs = -1, bi = 0, bj = 0;
+        for (let x = 0; x < Gm.length; x++) {
+          for (let y = 0; y < Gm.length; y++) {
+            const d = x - y;
+            let okCat;
+            if (isSmall) okCat = (d === (isHome ? 1 : -1));
+            else if (isTwo) okCat = (d === (isHome ? 2 : -2));
+            else okCat = (isHome ? d >= 3 : d <= -3);
+            if (!okCat) continue;
+            if (Gm[x][y] > bs) { bs = Gm[x][y]; bi = x; bj = y; }
+          }
+        }
+        if (bs > 0) {
+          const catAbs = isSmall ? w1 : (isTwo ? w2b : w3);
+          catNote = '<br><span style="color:#8A95A3">这 ' + pct(catAbs) +
+            ' 是摊在好几个比分上的，其中最高的是 <b>' + bi + ':' + bj + '</b>（' +
+            pct(bs) + '）。</span>';
+        }
+      }
+    } catch (e) { catNote = ''; }
     h += line('④ 赢几个',
               teamLab + '赢的话，多半是「' + top[0] + '」',
               '如果 ' + teamLab + '赢球（' + pct(sumWin) + '），三档是：<br>' +
               '小胜一球 ' + pct(w1) + '（占 ' + Math.round((w1 / sumWin) * 100) + '%）　' +
               '赢两球 ' + pct(w2b) + '　大胜三球以上 ' + pct(w3) +
+              catNote +
               '<br><span style="color:#8A95A3">所以这场更像「' + top[0] + '」的局面。</span>',
               tone);
+  })();
+  // 欧赔抽水：赔率被压得紧不紧
+  (function () {
+    const m = meta && meta.eu;
+    if (!m || m.length !== 3) return;
+    const sum = 1 / m[0] + 1 / m[1] + 1 / m[2];
+    const vig = sum - 1;
+    if (!isFinite(vig) || vig < -0.5 || vig > 1) return;
+    let txt, col;
+    if (vig <= 0.055) {
+      txt = '赔率比较干净，这场模型的判断可以多信一点';
+      col = '#2E7D32';
+    } else if (vig <= 0.080) {
+      txt = '正常水平，判断按平时看';
+      col = '#607080';
+    } else {
+      txt = '三家赔率被压得紧，概率容易失真——别当太真';
+      col = '#8A6D1F';
+    }
+    h += '<div class="tip" style="margin-top:8px;padding:7px 11px;background:#F7F9FC;' +
+      'border:1px solid #E4EAF2;border-radius:9px;line-height:1.7;color:#607080">' +
+      '<b>欧赔抽水 ' + (vig * 100).toFixed(1) + '%</b>（三家隐含概率加起来是 ' +
+      (sum).toFixed(3) + '，多出来的就是抽水）<br>' +
+      '<span style="color:' + col + '">' + txt + '</span><br>' +
+      '<span style="color:#8A95A3">全库实测：抽水 ≤5.5% 的场次方向命中 55.5%，' +
+      '≥8.0% 的只有 50.6%。</span></div>';
   })();
   h += '<div class="tip" style="margin-top:8px;color:#8A95A3;line-height:1.7">' +
        '这是把市场赔率翻译成人话。赔率越低的那项，市场越看好，' +
@@ -944,7 +1050,60 @@ function render(r,meta){
   const maxi=P.indexOf(Math.max(...P));
   const LG=(STATS&&STATS.ledger)||null;
   const lgT = LG && LG.tiers && LG.tiers[r.tier] ? LG.tiers[r.tier] : null;
-  let h=plainCard(r,meta);
+  let h = '';
+  // 本场信号：把「验证过的强信号」单独提到最上面
+  (function () {
+    const sigs = [];
+    let over3 = null;
+    try {
+      const t = r.tg || [];
+      over3 = (t[3] || 0) + (t[4] || 0) + (t[5] || 0) + (t[6] || 0) + (t[7] || 0);
+    } catch (e) { over3 = null; }
+    if (over3 !== null) {
+      if (over3 >= 0.60) sigs.push(['进球', '三球及以上 ' + Math.round(over3 * 100) + '%', '历史这类 76% 真的过了三球']);
+      else if (over3 < 0.50) sigs.push(['进球', '两球及以下 ' + Math.round((1 - over3) * 100) + '%', '历史这类 60% 真的不足三球']);
+    }
+    if (r.tier === '高') sigs.push(['方向', '高把握档 ' + pct(r.maxP), '台账这档命中 89.5%']);
+    let vig = null;
+    try {
+      const m = meta.eu;
+      vig = (1 / m[0] + 1 / m[1] + 1 / m[2]) - 1;
+    } catch (e) { vig = null; }
+    if (vig !== null && vig <= 0.055) sigs.push(['赔率', '抽水只有 ' + (vig * 100).toFixed(1) + '%', '这类场次方向命中 55.5%']);
+    try {
+      if (meta.jc && meta.jc.length === 3) {
+        const idx = P.indexOf(Math.max(...P));
+        const comp = meta.eu[idx] / meta.jc[idx];
+        if (comp >= 1.08 && comp < 1.13 && idx !== 1) {
+          sigs.push(['竞彩', '压缩比 ' + comp.toFixed(2) + '　' + names[idx] + '被压 ' +
+            Math.round((1 - meta.jc[idx] / meta.eu[idx]) * 100) + '%',
+            '这类历史上确实更准（主胜 53.2%）']);
+        }
+      }
+    } catch (e) { }
+
+    h += '<div class="card" style="border:2px solid ' +
+      (sigs.length ? '#2E7D32' : '#D6DEE8') + '"><div class="title"><span>本场信号</span>' +
+      '<span class="badge ' + (sigs.length ? 'b-high' : 'b-vlow') + '">' +
+      (sigs.length ? sigs.length + ' 个' : '没有') + '</span></div>';
+    if (!sigs.length) {
+      h += '<div class="tip" style="line-height:1.8;color:#607080">' +
+        '这场没有触发任何「验证过」的强信号——<b>方向、进球都在中间地带</b>，' +
+        '不值得当结论。<br><span style="color:#8A95A3">' +
+        '下面的数字照常看，但别当判断。</span></div>';
+    } else {
+      for (const s of sigs) {
+        h += '<div class="tip" style="padding:0 2px 8px;line-height:1.75">' +
+          '<span style="color:#2E7D32;font-weight:700">' + s[0] + '</span>　' +
+          '<b>' + s[1] + '</b><br>' +
+          '<span style="color:#8A95A3">' + s[2] + '</span></div>';
+      }
+      h += '<div class="tip" style="color:#7A8797;line-height:1.7">' +
+        '这是把「全库验证过有效」的几条挑出来——<b>其余数字都只是参考</b>。</div>';
+    }
+    h += '</div>';
+  })();
+  h += plainCard(r,meta);
   h+=verdictCard(r,meta);
   h+=`<div class="card"><div class="title"><span>模型推荐</span><span class="badge ${TC[r.tier]}">${r.tier}</span></div>
   <div class="big">${r.pick} <span style="font-size:20px">${pct(r.maxP)}</span></div>
@@ -1381,6 +1540,41 @@ function render(r,meta){
     h+=`<div class="card"><div class="title"><span>让球 ${k>0?'+':''}${k}</span><span class="badge b-low">参考 · 不作独立推荐</span></div>
     <div class="tip" style="margin:2px 0 8px;color:#607080">这是三档分布，不是另给一个推荐。<b>方向以上面的「${r.pick}」为准</b>。</div>
     ${(function(){
+      // 让球赔率里「让平」和「让胜/让负」的比值：市场怎么看「赢几个」
+      const H1 = ['让胜', '让平', '让负'];
+      const oh = (meta && meta.hc) || null;
+      if (!oh || oh.length !== 3) return '';
+      const a1 = parseFloat(oh[0]), a2 = parseFloat(oh[1]), a3 = parseFloat(oh[2]);
+      if (!(a1 > 1 && a2 > 1 && a3 > 1)) return '';
+      let ratio, lab, meaning, hist, col;
+      if (k < 0) {
+        // 主队让球：让胜 = 赢2球以上
+        ratio = a1 / a2;
+        lab = '让胜 ÷ 让平';
+        if (ratio > 1.4) { meaning = '市场很看好主队大胜（赢两球以上）'; hist = '这类历史让胜只有 12.5%'; col = '#B0503A'; }
+        else if (ratio > 1.2) { meaning = '市场认为主队可能赢两球以上'; hist = '这类历史让胜 16.4%'; col = '#8A6D1F'; }
+        else if (ratio > 1.0) { meaning = '市场认为主队赢不了两球'; hist = '这类历史让胜 22.2%'; col = '#607080'; }
+        else { meaning = '市场基本不相信主队能大胜'; hist = '这类历史让胜 35.6%'; col = '#2E7D32'; }
+      } else {
+        // 主队受让：让负 = 客队赢2球以上
+        ratio = a3 / a2;
+        lab = '让负 ÷ 让平';
+        if (ratio > 1.2) { meaning = '市场基本不相信客队能赢两球以上'; hist = '这类历史让负只有 16.7%'; col = '#2E7D32'; }
+        else if (ratio > 1.05) { meaning = '市场认为客队赢不了两球'; hist = '这类历史让负 21.4%'; col = '#607080'; }
+        else if (ratio > 0.95) { meaning = '市场认为客队可能赢两球以上'; hist = '这类历史让负 24.0%'; col = '#607080'; }
+        else if (ratio > 0.80) { meaning = '市场认为客队会赢两球以上'; hist = '这类历史让负 27.3%'; col = '#8A6D1F'; }
+        else { meaning = '市场很看好客队大胜（赢两球以上）'; hist = '这类历史让负 36.0%'; col = '#B0503A'; }
+      }
+      return '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#F7F9FC;' +
+        'border:1px solid #E4EAF2;border-radius:9px;line-height:1.8;color:#33506B">' +
+        '<b>市场怎么看「赢几个」</b><br>' +
+        lab + ' = ' + ratio.toFixed(2) +
+        '（' + H1[1] + ' ' + a2.toFixed(2) + '　' +
+        (k < 0 ? H1[0] : H1[2]) + ' ' + (k < 0 ? a1 : a3).toFixed(2) + '）<br>' +
+        '<span style="color:' + col + '">' + meaning + '</span>' +
+        '<br><span style="color:#8A95A3">' + hist + '</span></div>';
+    })()}
+    ${(function(){
       const H1=['让胜','让平','让负'], Y1=['主胜','平','客胜'];
       const c = cond[p1pick];
       const conflict = c[mi] < 0.001;
@@ -1508,7 +1702,16 @@ function render(r,meta){
   <div class="tip" style="line-height:1.9;margin-top:6px;color:#7A8797">
   半全场约 <b>40%</b>（基准 32%），有一点本事，但也就这样。<br>
   这个 App 是「帮你看懂一场球」的，不是「帮你赢钱」的。
-  </div></div>`;
+  </div>
+  <div class="tip" style="line-height:1.9;margin-top:6px">
+  <b style="color:#7A8797">这些思路都试过了，都是「价格换个写法」</b><br>
+  <span style="color:#8A95A3">
+  · 六个赔率排序（6→1）：排第几就是贵不贵，等于概率<br>
+  · 让球「平衡度」：和主胜赔率共线 0.875，是同一个变量<br>
+  · 让负÷让平、平÷让平：单调，但只反映市场认为赢几个<br>
+  · 竞彩压平局：反向——压得狠的反而更少打平（21.2%）<br>
+  · 平局概率的校准：已经很准（各档都在 ±2pp 内），不用修<br>
+  </span></div></div>`;
   h+=`<button class="go" id="keep" style="background:#2E7D32">存进台账</button>`;
   document.getElementById('out').innerHTML=h;
   document.getElementById('keep').onclick=()=>{

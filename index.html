@@ -47,6 +47,11 @@ input:focus{outline:none;border-color:#0E6B66;background:#fff}
 .grid9 .k{font-size:11px;color:#6b7785;position:relative}
 .grid9 .on{background:#E3EDF9;outline:1.5px solid #0E6B66}
 .sc{display:flex;justify-content:space-between;padding:8px 2px;border-bottom:1px dashed #e3e9f2;font-size:15px}
+.sv{margin-top:10px;font-size:13.5px}
+.sv .sh{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 0.9fr;gap:4px;color:#7A8797;font-size:12px;padding:4px 0;border-bottom:1px solid #e3e9f2}
+.sv .sr{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 0.9fr;gap:4px;padding:6px 0;border-bottom:1px dashed #eef2f7}
+.sv .sh span,.sv .sr span{text-align:right}
+.sv .sh span:first-child,.sv .sr span:first-child{text-align:left}
 .sc:last-child{border:0}
 .sc .p{color:#0E6B66;font-weight:700}
 .list{font-size:14px}
@@ -89,7 +94,7 @@ label{font-size:13.5px}
 .sc{font-size:15px;padding:11px 2px}
 .mini{font-size:13px;padding:6px 14px}
 /* ===== 推荐页 ===== */
-.seg{display:flex;gap:8px;margin-bottom:4px}
+.seg{display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap}
 .seg button{flex:1;border:1px solid #0E6B66;background:#fff;color:#0E6B66;border-radius:9px;
   padding:11px 0;font-size:15px;font-weight:600;font-family:inherit}
 .seg button.on{background:#0E6B66;color:#fff}
@@ -337,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v119</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v134</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -405,6 +410,9 @@ header .sub{font-size:14.5px}
       <button data-s="hist">历史统计</button>
       <button data-s="db">数据库</button>
       <button data-s="day">按日期</button>
+      <button data-s="parlay">过关</button>
+      <button data-s="review">复盘</button>
+      <button data-s="cover">覆盖</button>
     </div>
     <div class="tip" id="sumTip" style="margin-top:8px"></div>
   </div>
@@ -775,7 +783,14 @@ function verdictCard(r, meta) {
          'border-radius:8px;color:#8A6D1F;line-height:1.7">' +
          '⚠ <b>平局概率 ' + Math.round(r.p[1]*100) + '% 不等于会平</b><br>' +
          '全库 416 场同类（平局概率 ≥27%）实测：<b>差一球 43.5%</b>　正平只有 <b>30.0%</b><br>' +
-         '<span style="color:#A08A4A">平局概率高，说明这场胶着——胶着最常见的结果是「差一球」</span></div>';
+         '<span style="color:#A08A4A">平局概率高，说明这场胶着——胶着最常见的结果是「差一球」</span>' +
+         (r.p[1] >= 0.28
+           ? '<br><span style="color:#B0503A"><b>真要押平，别买「平」这个玩法</b>：' +
+             '7,489 场实测，买平的期望是 0.877（亏 12.3%），每一档都是这个数——' +
+             '说明竞彩把平局定得没毛病。想押平就用「让球 +1 的让胜」，' +
+             '它把平局和主胜打包，抽水只有 13%。' +
+             '（也别买 1-1——比分抽水 35%，期望只有 0.65）</span>'
+           : '') + '</div>';
   }
   h += '</div>';
 
@@ -783,17 +798,52 @@ function verdictCard(r, meta) {
   const tgOver = (r.tg[3]||0)+(r.tg[4]||0)+(r.tg[5]||0)+(r.tg[6]||0)+(r.tg[7]||0);
   let band = null;
   try { band = (typeof oddsBand === 'function') ? oddsBand(meta.eu) : null; } catch (e) {}
-  const cands = [tgOver];
-  if (kb) cands.push(kb.over);
-  if (band) cands.push(band.over);
-  const avgC = cands.reduce((a, b) => a + b, 0) / cands.length;
   h += '<div style="padding:8px 2px;border-bottom:1px dashed #eef2f7;line-height:1.8">' +
        '<b style="color:#0B1F33">② 3 球及以上：' + Math.round(tgOver*100) + '%</b><br>' +
        '<span style="color:#607080">模型 ' + Math.round(tgOver*100) + '%' +
        (kb ? '　·　最接近30场 ' + Math.round(kb.over*100) + '%' : '') +
        (band ? '　·　同赔率档 ' + Math.round(band.over*100) + '%' : '') +
-       '　→ 综合看 <b style="color:' + (avgC >= 0.5 ? '#2E7D32' : '#C0504D') + '">' +
-       Math.round(avgC*100) + '%</b></span></div>';
+       '　→ <b style="color:' + (tgOver >= 0.5 ? '#2E7D32' : '#C0504D') + '">' +
+       Math.round(tgOver*100) + '%</b>（以模型为准）</span><br>' +
+       '<span style="color:#8A95A3">「同赔率档」只看了一个赔率数字，实测比模型差；' +
+       '两边差得多的时候，信模型。</span>';
+  (function () {
+    // 首选比分（从网格直接读）
+    var topS = '';
+    try {
+      var bart = -1, bai = 0, baj = 0;
+      for (var qi = 0; qi < CUR.m.length; qi++) {
+        for (var qj = 0; qj < CUR.m[qi].length; qj++) {
+          if (CUR.m[qi][qj] > bart) { bart = CUR.m[qi][qj]; bai = qi; baj = qj; }
+        }
+      }
+      topS = bai + '-' + baj;
+    } catch (e) { topS = ''; }
+    var is11 = (topS === '1-1');
+    var lvl, rate, col, why;
+    if (!is11 && tgOver < 0.45) {
+      lvl = '最值得押'; rate = '17.7%'; col = '#2E7D32';
+      why = '进球少 + 有明确热门，比分就集中在那几格';
+    } else if (!is11 && tgOver < 0.55) {
+      lvl = '值得押'; rate = '15.2%'; col = '#2E7D32';
+      why = '进球中等 + 有明确热门';
+    } else if (is11) {
+      lvl = '一般'; rate = '12.3%'; col = '#8A6D1F';
+      why = '模型首选是 1-1——这类场次两边太接近，谁都赢不下来';
+    } else {
+      lvl = '别押'; rate = '10.4%'; col = '#B0503A';
+      why = '进球多，可能的比分十几格，每格都摊得很薄';
+    }
+    h += '<div style="margin-top:8px;padding:8px 10px;background:#F7F9FC;' +
+      'border:1px solid #E4EAF2;border-radius:8px;line-height:1.7">' +
+      '<b>这场适不适合押比分：<span style="color:' + col + '">' + lvl + '</span></b>' +
+      '（首选 ' + (topS || '?') + '，全库这档命中 <b>' + rate + '</b>）<br>' +
+      '<span style="color:#8A95A3">' + why + '。</span>' +
+      (is11 ? '<br><span style="color:#B0503A">注意：全库六成的场次首选都是 1-1，' +
+        '而那恰恰是最不该押的一类（12.3%）。押比分要挑「有明确热门」的场次。</span>' : '') +
+      '</div>';
+  })();
+  h += '</div>';
 
   // ③ 让球
   if (line !== null) {
@@ -828,9 +878,18 @@ function verdictCard(r, meta) {
          '<b style="color:#0B1F33">③ 让球 ' + (line > 0 ? '+' : '') + line + '：' +
          '让胜 ' + Math.round(rp[0]*100) + '%　让平 ' + Math.round(rp[1]*100) + '%　' +
          '让负 ' + Math.round(rp[2]*100) + '%</b><br>' +
-         '<span style="color:#607080">这是分布，不另给推荐——方向仍按「' + r.pick + '」。' +
-         '台账实测：方向 63.4%，让球只有 39.6%（因为我们的场次平局少，' +
-         '而让负靠平局撑）。</span></div>';
+         '<span style="color:#607080">这是分布，不另给推荐——方向仍按「' + r.pick + '」。</span>' +
+         (function () {
+           var rd = function (x) { return Math.round(x * 100) + '%'; };
+           var nm2 = line > 0
+             ? '让胜 = 主胜或平（' + rd(r.p[0]) + ' + ' + rd(r.p[1]) + '）'
+             : '让负 = 平或客胜（' + rd(r.p[1]) + ' + ' + rd(r.p[2]) + '）';
+           return '<br><span style="color:#8A6D1F">' + nm2 +
+             '——它天生就比另外两档大，不是「更看好」。' +
+             '方向是「' + r.pick + '」，所以这一档就是和方向相反的那半边：' +
+             '它不是另一个推荐，是「方向没中」的那部分概率。</span>';
+         })() +
+         '</div>';
   }
 
   // ④ 比分
@@ -846,9 +905,62 @@ function verdictCard(r, meta) {
            '，历史看 ' + kb.top[0][0] + '</span>';
     }
   }
+  // 条件比分：先定「净胜球 + 大小球」，再挑比分
+  (function () {
+    var Mx = CUR && CUR.m ? CUR.m : null;
+    if (!Mx) return;
+    var nm = Mx.length;
+    var scen = [];
+    for (var d = -3; d <= 3; d++) {
+      for (var g = 0; g < 2; g++) {
+        var cells = [];
+        var tot = 0;
+        for (var i = 0; i < nm; i++) {
+          for (var j = 0; j < nm; j++) {
+            if (i - j !== d) continue;
+            if (((i + j) >= 3 ? 1 : 0) !== g) continue;
+            cells.push([Mx[i][j], i + '-' + j]);
+            tot += Mx[i][j];
+          }
+        }
+        if (tot < 0.004) continue;
+        cells.sort(function (a, b) { return b[0] - a[0]; });
+        scen.push({ p: tot, d: d, g: g, top: cells.slice(0, 3) });
+      }
+    }
+    scen.sort(function (a, b) { return b.p - a.p; });
+    var label = function (s) {
+      var side = s.d > 0 ? '主队赢 ' + s.d + ' 球'
+        : (s.d === 0 ? '打平' : '客队赢 ' + (-s.d) + ' 球');
+      return side + ' + ' + (s.g ? '三球以上' : '两球及以下');
+    };
+    h += '<div style="margin-top:10px;padding:10px 11px;background:#FBF7EE;' +
+      'border:1px solid #EFE2C8;border-radius:9px;line-height:1.8;color:#7A5C1F">' +
+      '<b>如果这样赢——先定「赢几个 + 进几球」，比分就几乎定了</b><br>' +
+      '<span style="color:#A08A5A;font-size:12.5px">全库实测：给定「赢一球 + 三球以上」，' +
+      '2-1 占 72.3%、3-2 占 24.6%、4-3 占 3.0%</span>';
+    for (var k = 0; k < Math.min(3, scen.length); k++) {
+      var s = scen[k];
+      var parts = [];
+      for (var q = 0; q < s.top.length; q++) {
+        var cp = s.p > 0 ? s.top[q][0] / s.p : 0;
+        if (cp < 0.02) continue;
+        parts.push('<b>' + s.top[q][1] + '</b> ' + Math.round(cp * 100) + '%');
+      }
+      h += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #E8D9B8">' +
+        '<span style="color:#8A6D1F">' + label(s) + '</span>' +
+        '　模型给 <b>' + Math.round(s.p * 100) + '%</b><br>' +
+        '<span style="color:#607080">→ ' + parts.join('　') + '</span></div>';
+    }
+    h += '<div style="margin-top:8px;color:#A08A5A;font-size:12.5px">' +
+      '所以别问「哪个比分最可能」，先问「这场会怎么赢」。' +
+      '场景对了，比分自然就出来了。</div></div>';
+  })();
   h += '</div>';
-  h += '<div class="tip" style="margin-top:8px;color:#8A95A3">① 是市场概率（不是模型算的）；' +
-       '②③④ 里带「最接近30场」「同赔率档」的是历史真实数据，带「模型」的是算出来的。</div>';
+  h += '<div class="tip" style="margin-top:8px;color:#8A95A3">① 是市场概率（不是模型算的）。<br>' +
+       '②③④ 里的「最接近30场」「同赔率档」是两个历史参照口径，' +
+       '全库 6,594 场对照下来<b>都不如模型准</b>（模型判断正确率 58.0%，同赔率档 54.9%）。' +
+       '所以它们只用来「看看历史上类似赔率开成什么样」，<b>不要拿它去改模型的数字</b>。</div>';
   h += '</div>';
   return h;
 }
@@ -1181,7 +1293,48 @@ function render(r,meta){
   <div class="grid9">${r.hf.map((v,i)=>`<div class="${i===r.hfFirst?'on':''}"><div class="v">${pct(v)}</div><div class="k">${SERIES[i]}</div></div>`).join('')}</div>
   <div class="tip" style="margin-top:10px">半场 0-0 <b>${pct(ht00)}</b>　半场打平合计 <b>${pct(htDraw)}</b>（全库实测半场 0-0 占 29.2%、半场平占 40.1%）</div>
   <div class="tip" style="color:#2E7D32">半场有人领先的话，全场基本就定了——半场主队领先时最终不输 93.5%，客队领先时 87.4%（3,346 场实测）</div>
-  <div class="tip" style="color:#8A95A3">平赔越低，半场 0-0 越多：平赔 2.8-3.1 → 38.2%；平赔 &gt;4.5 → 21.7%</div></div>`;
+  ${(function () {
+    const o = (meta && meta.eu) || null;
+    if (!o || o.length !== 3) return '';
+    const h = parseFloat(o[0]);
+    if (!(h > 1) || h >= 1.5) return '';
+    return '<div class="tip" style="margin-top:10px;padding:10px 12px;background:#F1F7F3;' +
+      'border:1px solid #D5E8DA;border-radius:9px;line-height:1.85;color:#2B4A35">' +
+      '<b>这场是大热门——半场就是分水岭</b><br>' +
+      '<span style="color:#3B6B4B">半场就领先 → 最后赢 <b>92%</b></span>' +
+      '<span style="color:#8A95A3">（532 场里 491 场）</span><br>' +
+      '<span style="color:#8A6D1F">半场还是平 → 最后赢 <b>64%</b></span>' +
+      '<span style="color:#8A95A3">（280 场里 180 场）</span><br>' +
+      '<span style="color:#B0503A">半场落后 → 最后赢 <b>31%</b></span>' +
+      '<span style="color:#8A95A3">（101 场里 31 场）</span><br>' +
+      '<span style="color:#607080">换句话说：半场没领先，这场的主胜就从「八成」掉到「六成半」甚至「三成」。</span>' +
+      '</div>';
+  })()}
+  <div class="tip" style="color:#8A95A3">平赔越低，半场 0-0 越多：平赔 2.8-3.1 → 38.2%；平赔 &gt;4.5 → 21.7%</div>
+  ${(function () {
+    const o = (meta && meta.eu) || null;
+    if (!o || o.length !== 3) return '';
+    const h = parseFloat(o[0]);
+    if (!(h > 1)) return '';
+    let hi = '高', txt;
+    if (h < 1.4) {
+      txt = '这场主队太强了——半场就落后的机会只有 9%，翻盘的本钱反而少';
+    } else if (h < 2.2) {
+      txt = '这场最容易出现「翻盘」——半场落后、全场追回来';
+    } else if (h < 2.8) {
+      txt = '这场主队一般，翻盘的几率明显变小';
+    } else {
+      txt = '这场主队偏弱——一旦落后，基本追不回来';
+    }
+    const rate = h < 1.4 ? '2.8%' : (h < 2.2 ? '4.2%' : (h < 2.8 ? '2.9%' : '1.7~2.6%'));
+    return '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#FBF7EE;' +
+      'border:1px solid #EFE2C8;border-radius:9px;line-height:1.8;color:#8A6D1F">' +
+      '<b>「翻盘」值不值得想</b>（半场落后、全场赢）<br>' +
+      txt + '——全库这类大约 <b>' + rate + '</b>。<br>' +
+      '<span style="color:#A08A5A">相邻档位对比：大热门 2.8%　中强 4.2%　一般 2.9%　偏弱 1.7%</span><br>' +
+      '<span style="color:#A08A5A">真翻盘的样子很固定：74% 是半场 0-1，一半最终 2-1。</span>' +
+      '</div>';
+  })()}</div>`;
   const mxg=Math.max(r.g2,r.g3,r.g4);
   const top5 = (r.top5 && r.top5.length ? r.top5 : r.top3) || [];
   const gOf = s => { const q = String(s).split(':'); return (+q[0]) + (+q[1]); };
@@ -1718,6 +1871,15 @@ function render(r,meta){
   · 让负÷让平、平÷让平：单调，但只反映市场认为赢几个<br>
   · 竞彩压平局：反向——压得狠的反而更少打平（21.2%）<br>
   · 平局概率的校准：已经很准（各档都在 ±2pp 内），不用修<br>
+  </span></div>
+  <div class="tip" style="line-height:1.9;margin-top:6px">
+  <b style="color:#7A8797">查过、确实有小偏差，但没改</b><br>
+  <span style="color:#8A95A3">
+  · 强队（欧赔 &lt;1.4）半场领先：模型 57.6%，实际 62.2%（低 4.6pp）<br>
+  · 强队「半场领先→全场赢」：模型 47.8%，实际 51.1%（低 3.4pp）<br>
+  · 「半场落后→全场翻盘」的 1.4 加成，对强队反而过头<br>
+  <b>为什么没改</b>：这三条都不改变「报哪一项」，只是显示的数字偏一点；
+  动半场分配会牵动全库所有档位，风险大于收益。
   </span></div></div>`;
   h+=`<button class="go" id="keep" style="background:#2E7D32">存进台账</button>`;
   document.getElementById('out').innerHTML=h;
@@ -2377,7 +2539,7 @@ function renderLedger(){
         半全场<span class="${ok2?'hit':'miss'}">${ok2?'✓':'✗'}</span>
         比分<span class="${okS?'hit':'miss'}">${okS?'✓':'✗'}</span></div>`;
     }
-    return `<div class="item"><div class="h"><span>${it.home} vs ${it.away}</span>
+    return `<div class="item"><div class="h"><span>${it.num ? '<span style="color:#0E6B66;font-weight:600">' + it.num + '</span> ' : ''}${it.home} vs ${it.away}</span>
       <button class="del" onclick="delItem(${it.id})">删</button></div>
       <div class="m">${it.pick} ${pct(it.p[it.pick==='主胜'?0:it.pick==='平'?1:2])}（${it.tier}）·
       半全场 ${it.hfFirst} ${pct(it.hfP)} · 比分 ${it.score} ${pct(it.scoreP)}</div>
@@ -3312,12 +3474,423 @@ function chipRow(title, dim, all, pickFn) {
   return h;
 }
 
+let COVER_SEL = {};
+
+function _coverList() {
+  const out = [];
+  (typeof ODDS !== 'undefined' ? ODDS : []).forEach(function (m, i) {
+    if (m && m.eu && m.eu.length === 3) out.push({ i: i, m: m });
+  });
+  return out;
+}
+
+function renderCover() {
+  const box = document.getElementById('sumBody');
+  const tip = document.getElementById('sumTip');
+  if (!box) return;
+  const list = _coverList();
+  let h = '';
+  if (!list.length) {
+    h += '<div class="card"><div class="tip">还没有比赛数据。' +
+      '回「预测」页点「拉取」，拿到当天的赔率后再回来选。</div></div>';
+    box.innerHTML = h;
+    if (tip) tip.textContent = '';
+    return;
+  }
+
+  const picked = list.filter(function (x) { return COVER_SEL[x.i]; });
+
+  h += '<div class="card"><div class="title"><span>比分覆盖</span>' +
+    '<span class="tip">已选 ' + picked.length + ' 场</span></div>';
+  h += '<div class="tip" style="line-height:1.85">' +
+    '点下面挑几场（3~6 场最合适），我算<b>每个比分在这几场里「至少出现一次」的概率</b>。<br>' +
+    '<span style="color:#8A95A3">一天 20 场里同一比分出现两次很常见——这个工具就是把这个现象算出来。</span>' +
+    '</div>';
+  h += '<div class="chips" style="margin-top:10px">';
+  for (const x of list) {
+    const on = COVER_SEL[x.i] ? ' on' : '';
+    h += '<button class="chip' + on + '" onclick="cvTog(' + x.i + ')">' +
+      x.m.h + ' vs ' + x.m.a + '</button>';
+  }
+  h += '</div>';
+  if (picked.length) {
+    h += '<div class="row" style="margin-top:10px">' +
+      '<div><button class="mini" style="width:100%" onclick="cvClear()">清空</button></div>' +
+      '</div>';
+  }
+  h += '</div>';
+
+  if (picked.length) {
+    // 逐场算比分分布
+    const mats = [];
+    const names = [];
+    for (const x of picked) {
+      try {
+        const r = predict(x.m.eu);
+        mats.push(scoreMatrix(r.lh, r.la));
+        names.push(x.m.h + ' vs ' + x.m.a);
+      } catch (e) { }
+    }
+    if (!mats.length) {
+      h += '<div class="card"><div class="tip">这几场算不出来（赔率异常）</div></div>';
+      box.innerHTML = h;
+      return;
+    }
+
+    const N = mats.length;
+    const scores = [];
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 8; j++) {
+        let miss = 1;
+        const per = [];
+        for (let k = 0; k < N; k++) {
+          const p = mats[k][i] ? (mats[k][i][j] || 0) : 0;
+          per.push(p);
+          miss *= (1 - p);
+        }
+        scores.push({ s: i + ':' + j, p: 1 - miss, per: per });
+      }
+    }
+    scores.sort(function (a, b) { return b.p - a.p; });
+
+    h += '<div class="card"><div class="title"><span>至少出现一次的比分</span>' +
+      '<span class="tip">' + N + ' 场合计</span></div>';
+    h += '<div class="sv"><div class="sh"><span>比分</span><span>至少一次</span>' +
+      '<span>单场最高</span></div>';
+    for (const x of scores.slice(0, 10)) {
+      let mi = 0;
+      for (let k = 1; k < N; k++) if (x.per[k] > x.per[mi]) mi = k;
+      const col = x.p >= 0.5 ? '#2E7D32' : (x.p >= 0.3 ? '#8A6D1F' : '#607080');
+      h += '<div class="sr"><span><b>' + x.s + '</b></span>' +
+        '<span style="color:' + col + ';font-weight:700">' + (x.p * 100).toFixed(1) + '%</span>' +
+        '<span style="color:#8A95A3;font-size:12px">' + (x.per[mi] * 100).toFixed(1) + '%</span></div>';
+    }
+    h += '</div>';
+
+    const top5 = scores.slice(0, 5).reduce(function (a, b) { return a + b.p; }, 0);
+    const top1 = scores[0];
+    h += '<div class="tip" style="margin-top:12px;padding:10px 12px;background:#F1F7F3;' +
+      'border:1px solid #D5E8DA;border-radius:9px;line-height:1.85">' +
+      '<b style="color:#2E7D32">最可能的那个比分是 ' + top1.s + '</b>' +
+      '（' + N + ' 场里至少出现一次 <b>' + (top1.p * 100).toFixed(1) + '%</b>）<br>' +
+      '<span style="color:#607080">前 5 个比分加起来（各自至少一次的概率之和）：' +
+      (top5 * 100).toFixed(0) + '%——这只是「期望命中次数」，不是覆盖率。</span></div>';
+    h += '<div class="tip" style="margin-top:8px;color:#8A95A3">' +
+      '注意：这里算的是「独立比赛」，同一场只能出一个比分。' +
+      '所以两个比分不可能同时在同场出现——但可能在两场分别出现。</div>';
+    h += '</div>';
+  } else {
+    h += '<div class="card"><div class="tip">上面挑几场，这里就会算出来。</div></div>';
+  }
+
+  box.innerHTML = h;
+  if (tip) tip.textContent = '选几场，看哪个比分最可能在这几场里出现至少一次';
+}
+
+window.cvTog = function (i) {
+  if (COVER_SEL[i]) delete COVER_SEL[i];
+  else {
+    const n = Object.keys(COVER_SEL).length;
+    if (n >= 8) { alert('最多选 8 场'); return; }
+    COVER_SEL[i] = 1;
+  }
+  renderCover();
+};
+window.cvClear = function () { COVER_SEL = {}; renderCover(); };
+
+function _hcAct(result, line) {
+  const q = String(result).split('-').map(Number);
+  if (q.length !== 2 || !isFinite(q[0]) || !isFinite(q[1])) return '';
+  const d = q[0] - q[1] + line;
+  return d > 0 ? '让胜' : (d === 0 ? '让平' : '让负');
+}
+
+let REVIEW_MODE = 'day';
+let REVIEW_LIMIT = 12;
+
+function _rvStat(arr) {
+  let dir = 0, hf = 0, sc = 0, hc = 0, n = 0, nh = 0, ne = 0;
+  for (const x of arr) {
+    const q = String(x.result).split('-').map(Number);
+    if (q.length !== 2 || !isFinite(q[0]) || !isFinite(q[1])) continue;
+    n++;
+    const m = q[0] > q[1] ? '主胜' : (q[0] === q[1] ? '平' : '客胜');
+    if (m === x.pick) dir++;
+    if (String(x.result) === String(x.score).replace(':', '-')) sc++;
+    const ht = String(x.htft || '');
+    if (ht.length === 2) { nh++; if (ht === String(x.hfFirst)) hf++; }
+    if (x.hcPick && x.handicap !== '' && x.handicap != null && !isNaN(+x.handicap)) {
+      ne++;
+      if (_hcAct(x.result, Math.round(+x.handicap)) === x.hcPick) hc++;
+    }
+  }
+  return { dir: dir, hf: hf, sc: sc, hc: hc, n: n, nh: nh, ne: ne };
+}
+
+function _rvP(a, b) { return b ? (a / b * 100).toFixed(1) + '%' : '—'; }
+
+function _rvSortRows(arr) {
+  arr.sort(function (a, b) {
+    const na = String(a.num || 'zzz'), nb = String(b.num || 'zzz');
+    if (na.slice(0, 2) !== nb.slice(0, 2)) return na < nb ? -1 : 1;
+    return (parseInt(na.replace(/\D/g, ''), 10) || 999) -
+           (parseInt(nb.replace(/\D/g, ''), 10) || 999);
+  });
+}
+
+function _rvRow(x) {
+  const q = String(x.result).split('-').map(Number);
+  const m = q[0] > q[1] ? '主胜' : (q[0] === q[1] ? '平' : '客胜');
+  const ok1 = m === x.pick;
+  const ht = String(x.htft || '');
+  const ok2 = ht.length === 2 ? (ht === String(x.hfFirst)) : null;
+  const ok3 = String(x.result) === String(x.score).replace(':', '-');
+  let ok4 = null;
+  if (x.hcPick && x.handicap !== '' && x.handicap != null && !isNaN(+x.handicap)) {
+    ok4 = _hcAct(x.result, Math.round(+x.handicap)) === x.hcPick;
+  }
+  const tk = function (b) {
+    return b === null ? '<span style="color:#C9D2DD">·</span>'
+      : (b ? '<span class="hit">✓</span>' : '<span class="miss">✗</span>');
+  };
+  return '<div class="strow" style="padding:9px 2px;align-items:flex-start">' +
+    '<span style="flex:1;min-width:0">' +
+    '<span style="font-size:14.5px">' +
+    (x.num ? '<span style="color:#0E6B66;font-weight:600">' + x.num + '</span> ' : '') +
+    x.home + ' vs ' + x.away + '</span><br>' +
+    '<span style="font-size:12px;color:#7A8797">' + (x.date || '') +
+    '　推 ' + x.pick + '　半 ' + x.hfFirst +
+    (x.hcPick ? '　让球 ' + x.hcPick : '') + '</span></span>' +
+    '<span style="width:62px;text-align:right"><b>' + x.result + '</b><br>' +
+    '<span style="font-size:12px;color:#7A8797">' + (x.htft || '—') + '</span></span>' +
+    '<span style="width:88px;text-align:right;font-size:12px;line-height:1.9">' +
+    '方向' + tk(ok1) + ' 半全' + tk(ok2) + '<br>比分' + tk(ok3) + ' 让球' + tk(ok4) +
+    '</span></div>';
+}
+
+function renderReview() {
+  const box = document.getElementById('sumBody');
+  const tip = document.getElementById('sumTip');
+  if (!box) return;
+  const led = load().filter(function (x) {
+    return x.scored && /^\d+-\d+$/.test(String(x.result));
+  });
+  if (!led.length) {
+    box.innerHTML = '<div class="card"><div class="tip">台账里还没有记结果。' +
+      '到「预测」页存一场，再到「台账」页记上比分就会出现在这里。</div></div>';
+    if (tip) tip.textContent = '';
+    return;
+  }
+
+  const all = _rvStat(led);
+  let h = '<div class="card"><div class="title"><span>复盘</span>' +
+    '<span class="tip">' + led.length + ' 场</span></div>';
+  h += '<div class="seg" style="margin-bottom:10px">' +
+    '<button class="' + (REVIEW_MODE === 'day' ? 'on' : '') + '" onclick="rvMode(\'day\')">按日期</button>' +
+    '<button class="' + (REVIEW_MODE === 'num' ? 'on' : '') + '" onclick="rvMode(\'num\')">按编号</button></div>';
+  h += '<div class="tip" style="line-height:1.9">全期：方向 <b>' + all.dir + '/' + all.n +
+    '</b>（' + _rvP(all.dir, all.n) + '）　半全场 <b>' + all.hf + '/' + all.nh +
+    '</b>（' + _rvP(all.hf, all.nh) + '）<br>比分 <b>' + all.sc + '/' + all.n +
+    '</b>（' + _rvP(all.sc, all.n) + '）　让球 <b>' + all.hc + '/' + all.ne +
+    '</b>（' + _rvP(all.hc, all.ne) + '）<br>' +
+    '<span style="color:#8A95A3">分母是「有这项记录的场次」——没记半场的不会算成错。</span></div></div>';
+
+  const groups = {};
+  for (const x of led) {
+    let k;
+    if (REVIEW_MODE === 'num') {
+      k = x.num ? String(x.num).slice(0, 2) : '无编号';
+    } else {
+      k = String(x.date || '未标日期').slice(0, 10);
+    }
+    (groups[k] = groups[k] || []).push(x);
+  }
+
+  const WD = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  let keys = Object.keys(groups);
+  if (REVIEW_MODE === 'num') {
+    keys.sort(function (a, b) {
+      const ia = WD.indexOf(a), ib = WD.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  } else {
+    keys.sort().reverse();
+  }
+
+  const shown = keys.slice(0, REVIEW_LIMIT);
+  for (const d of shown) {
+    const arr = groups[d];
+    _rvSortRows(arr);
+    const s = _rvStat(arr);
+    h += '<div class="card"><div class="title"><span>' + d + '</span>' +
+      '<span class="tip">' + arr.length + ' 场</span></div>';
+    h += '<div class="tip" style="line-height:1.8;color:#607080">' +
+      '方向 ' + s.dir + '/' + s.n + '（' + _rvP(s.dir, s.n) + '）　' +
+      '半全场 ' + s.hf + '/' + s.nh + '（' + _rvP(s.hf, s.nh) + '）<br>' +
+      '比分 ' + s.sc + '/' + s.n + '（' + _rvP(s.sc, s.n) + '）　' +
+      '让球 ' + s.hc + '/' + s.ne + '（' + _rvP(s.hc, s.ne) + '）</div>';
+    for (const x of arr) h += _rvRow(x);
+    h += '</div>';
+  }
+
+  if (keys.length > REVIEW_LIMIT) {
+    h += '<div class="card"><button class="mini" style="width:100%" onclick="rvMore()">' +
+      '再看 ' + Math.min(12, keys.length - REVIEW_LIMIT) + ' 组（还剩 ' +
+      (keys.length - REVIEW_LIMIT) + ' 组）</button></div>';
+  }
+  box.innerHTML = h;
+  if (tip) tip.textContent = REVIEW_MODE === 'num'
+    ? '按竞彩编号的星期分组，看哪天的判断更准'
+    : '按官方比赛日回看每一场的四项命中';
+}
+
+window.rvMode = function (m) { REVIEW_MODE = m; REVIEW_LIMIT = 12; renderReview(); };
+window.rvMore = function () { REVIEW_LIMIT += 12; renderReview(); };
+
+function _C(n, r) {
+  if (r < 0 || r > n) return 0;
+  let x = 1;
+  for (let i = 0; i < r; i++) x = x * (n - i) / (i + 1);
+  return Math.round(x);
+}
+
+function renderParlay() {
+  const box = document.getElementById('sumBody');
+  const tip = document.getElementById('sumTip');
+  if (!box) return;
+  if (tip) tip.textContent = '五场单挑，中几场能回本、概率多少';
+  const pctv = '10.7';
+  let h = '<div class="card">';
+  h += '<div class="title"><span>过关筹码测算</span></div>';
+  h += '<div class="tip" style="line-height:1.85">' +
+    '填 5 场的<b>单场命中率</b>——比分大概 10~12，半全场大概 35~40。<br>' +
+    '再填<b>平均赔率</b>和<b>关数</b>（2 表示只买两关，234 表示 2/3/4 关都买）。' +
+    '</div>';
+  h += '<div class="row" style="margin-top:10px">';
+  for (let i = 1; i <= 5; i++) {
+    h += '<div><label>第 ' + i + ' 场 %</label>' +
+         '<input id="pR' + i + '" inputmode="decimal" value="' + pctv + '"></div>';
+  }
+  h += '</div>';
+  h += '<div class="row">' +
+    '<div><label>平均赔率</label><input id="pOdds" inputmode="decimal" value="7.5"></div>' +
+    '<div><label>关数</label><input id="pLegs" value="234" placeholder="234"></div>' +
+    '</div>';
+  h += '<div class="row">' +
+    '<div><button class="mini" style="width:100%" onclick="pPreset(10.7,7.5)">比分（10.7% / 7.5）</button></div>' +
+    '<div><button class="mini" style="width:100%" onclick="pPreset(36.3,2.6)">半全场（36.3% / 2.6）</button></div>' +
+    '<div><button class="mini" style="width:100%" onclick="pGo()">算一下</button></div>' +
+    '</div>';
+  h += '<div id="pOut" style="margin-top:12px"></div>';
+  h += '</div>';
+  box.innerHTML = h;
+  pGo();
+}
+
+function pPreset(p, o) {
+  for (let i = 1; i <= 5; i++) {
+    const e = document.getElementById('pR' + i);
+    if (e) e.value = p;
+  }
+  const e2 = document.getElementById('pOdds');
+  if (e2) e2.value = o;
+  pGo();
+}
+
+function pGo() {
+  const out = document.getElementById('pOut');
+  if (!out) return;
+  const p = [];
+  for (let i = 1; i <= 5; i++) {
+    const e = document.getElementById('pR' + i);
+    let v = e ? parseFloat(e.value) : NaN;
+    if (!isFinite(v)) v = 0;
+    p.push(Math.max(0, Math.min(1, v / 100)));
+  }
+  const oe = document.getElementById('pOdds');
+  const o = oe ? (parseFloat(oe.value) || 0) : 0;
+  const le = document.getElementById('pLegs');
+  const legs = String(le ? le.value : '234')
+    .split('').map(x => parseInt(x, 10))
+    .filter(x => x >= 2 && x <= 5);
+  const uniq = [];
+  for (const x of legs) if (uniq.indexOf(x) < 0) uniq.push(x);
+  uniq.sort();
+
+  if (!uniq.length || !(o > 1)) {
+    out.innerHTML = '<div class="tip" style="color:#B0503A">关数填 2~5，赔率要大于 1</div>';
+    return;
+  }
+
+  // 精确分布（五场概率不同，逐组合算）
+  const dist = [0, 0, 0, 0, 0, 0];
+  for (let mask = 0; mask < 32; mask++) {
+    let pr = 1, k = 0;
+    for (let i = 0; i < 5; i++) {
+      if (mask & (1 << i)) { pr *= p[i]; k++; } else { pr *= (1 - p[i]); }
+    }
+    dist[k] += pr;
+  }
+
+  const cost = uniq.reduce((a, j) => a + _C(5, j), 0);
+  const pay = k => uniq.reduce((a, j) => a + _C(k, j) * Math.pow(o, j), 0);
+
+  let h = '<div class="tip" style="line-height:1.8">成本 <b>' + cost + '</b> 注' +
+    '（买 ' + uniq.join('/') + ' 关）　平均赔率 ' + o.toFixed(2) + '</div>';
+  h += '<div class="sv">';
+  h += '<div class="sh"><span>中几场</span><span>概率</span><span>中奖注</span>' +
+       '<span>回收</span><span>净</span></div>';
+  let ev = 0;
+  for (let k = 0; k <= 5; k++) {
+    const po = pay(k);
+    const t = uniq.reduce((a, j) => a + _C(k, j), 0);
+    ev += dist[k] * (po - cost);
+    const col = po - cost >= 0 ? '#2E7D32' : '#8A95A3';
+    h += '<div class="sr"><span>' + k + ' 场</span>' +
+         '<span>' + (dist[k] * 100).toFixed(1) + '%</span>' +
+         '<span>' + t + '</span>' +
+         '<span>' + po.toFixed(1) + '</span>' +
+         '<span style="color:' + col + '">' + (po - cost >= 0 ? '+' : '') +
+         (po - cost).toFixed(1) + '</span></div>';
+  }
+  h += '</div>';
+
+  let need = -1;
+  for (let k = 0; k <= 5; k++) {
+    if (pay(k) >= cost) { need = k; break; }
+  }
+  if (need < 0) {
+    h += '<div class="tip" style="color:#B0503A">全中也回不了本——赔率太低或关数太多</div>';
+  } else {
+    let pk = 0;
+    for (let k = need; k <= 5; k++) pk += dist[k];
+    h += '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#F1F7F3;' +
+      'border:1px solid #D5E8DA;border-radius:9px;line-height:1.85">' +
+      '<b style="color:#2E7D32">中 ' + need + ' 场就回本</b>' +
+      '（回收 ' + pay(need).toFixed(1) + ' ≥ 成本 ' + cost + '）<br>' +
+      '而中 ' + need + ' 场以上的概率是 <b>' + (pk * 100).toFixed(1) + '%</b>' +
+      '</div>';
+  }
+  const ret = cost ? ev / cost : 0;
+  h += '<div class="tip" style="margin-top:8px;color:' +
+    (ret >= 0 ? '#2E7D32' : '#B0503A') + '">期望盈亏 <b>' + (ev >= 0 ? '+' : '') +
+    ev.toFixed(1) + '</b> 注（回报率 ' + (ret * 100).toFixed(0) + '%）</div>';
+  h += '<div class="tip" style="margin-top:6px;color:#8A95A3">' +
+    '过关越多，抽水叠得越重：2 关约 77%、3 关约 68%、4 关约 60%。</div>';
+  out.innerHTML = h;
+}
+window.pPreset = pPreset;
+window.pGo = pGo;
+
 function renderSum() {
   const box = document.getElementById('sumBody');
   const tip = document.getElementById('sumTip');
   if (!box) return;
   if (SUM_VIEW === 'db') { renderDB(); return; }
   if (SUM_VIEW === 'day') { renderDay(); return; }
+  if (SUM_VIEW === 'parlay') { renderParlay(); return; }
+  if (SUM_VIEW === 'review') { renderReview(); return; }
+  if (SUM_VIEW === 'cover') { renderCover(); return; }
   const all = todayMatches();
   if (!all.length) {
     box.innerHTML = '<div class="card"><div class="tip">还没有比赛数据。回「预测」页点「拉取」。</div></div>';

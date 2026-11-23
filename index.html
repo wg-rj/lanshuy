@@ -342,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v134</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v137</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -1951,10 +1951,29 @@ function cloudCard() {
       '<div class="tip">云端今天没有算出场次（' + (CLOUD.updated || '') + '）</div></div>';
   }
   const TIER = { '高': '#2E7D32', '中': '#C79100', '低': '#94A1B2', '很低': '#B0BAC7' };
+  const oldList = [], upList = [];
+  for (const x of ms) {
+    let k = null;
+    try {
+      k = kickoffMs({ date: String(x.mdate || x.date || '').slice(0, 10),
+                      time: String(x.time || '').slice(0, 5) });
+    } catch (e) { k = null; }
+    if (k !== null && (Date.now() - k) > 6 * 3600 * 1000) oldList.push(x);
+    else upList.push(x);
+  }
+  const showOld = (typeof CLOUD_SHOW_OLD !== 'undefined') && CLOUD_SHOW_OLD;
   let h = '<div class="card"><div class="title"><span>云端预测</span>' +
-    '<span class="badge b-high">' + ms.length + ' 场</span></div>';
+    '<span class="badge b-high">' + (upList.length ? upList.length + ' 场可买' : '暂无可买') + '</span></div>';
   h += '<div class="tip">更新时间 ' + (CLOUD.updated || '?') + '　·　真欧赔 ' +
        (CLOUD.euCount || 0) + ' 场，其余用竞彩推算</div>';
+  if (!upList.length) {
+    h += '<div class="tip" style="margin-top:8px;padding:9px 11px;background:#F2F5F9;' +
+      'border:1px solid #DFE6EF;border-radius:9px;line-height:1.8;color:#5B6674">' +
+      '这一版 <b>' + ms.length + ' 场</b>都已经踢完了，所以不在这里列。<br>' +
+      '<span style="color:#8A95A3">等当天的云端任务跑完（每天 17:00），就会有新的场次。</span></div>';
+  }
+
+
   (function(){
     const up = String(CLOUD.updated || '');
     if (!up) return;
@@ -1974,7 +1993,7 @@ function cloudCard() {
        '<span style="width:48px;text-align:right">概率</span>' +
        '<span style="width:70px;text-align:right">比分 高▸同向</span>' +
        '<span style="width:46px;text-align:right">平局</span></div>';
-  for (const x of ms) {
+  for (const x of upList) {
     const col = TIER[x.tier] || '#94A1B2';
     h += '<div class="strow" style="padding:11px 2px">' +
          '<span style="flex:1">' + x.h + ' vs ' + x.a +
@@ -2025,10 +2044,32 @@ function cloudCard() {
         '　（两队场均进球合计 ' + sum.toFixed(1) + '）' + agree + '</div>';
     })();
   }
+  if (oldList.length) {
+    h += '<div style="margin-top:10px;padding-top:9px;border-top:1px dashed #eef2f7">' +
+      '<button class="mini" style="width:100%" onclick="cloudOld()">' +
+      (showOld ? '收起已完赛的 ' + oldList.length + ' 场'
+               : '看看已完赛的 ' + oldList.length + ' 场（回看用）') + '</button></div>';
+    if (showOld) {
+      for (const x of oldList) {
+        h += '<div class="strow" style="padding:9px 2px;opacity:.75">' +
+          '<span style="flex:1">' + x.h + ' vs ' + x.a +
+          '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+          x.lg + '　' + (x.date || '').slice(5) + ' ' + (x.time || '') +
+          '　已完赛</s></span>' +
+          '<span style="width:56px;text-align:right;font-weight:600">' + x.pick + '</span>' +
+          '<span style="width:48px;text-align:right;color:#94A1B2">' +
+          Math.round((x.prob || 0) * 100) + '%</span>' +
+          '<span style="width:70px;text-align:right;color:#94A1B2">' + (x.score || '') + '</span></div>';
+      }
+    }
+  }
   h += '<button class="mini" style="margin-top:10px" onclick="cloudReload()">刷新</button>';
   h += '</div>';
   return h;
 }
+
+let CLOUD_SHOW_OLD = false;
+window.cloudOld = function () { CLOUD_SHOW_OLD = !CLOUD_SHOW_OLD; renderRec(); };
 
 
 /* ============ EV 价值区 ============ */
@@ -2317,12 +2358,37 @@ renderRec = function () {
   const cnt = document.getElementById('recCount');
   if (cnt) cnt.textContent = all.length ? (all.length + ' 场可算') : '';
   if (!all.length) {
-    box.innerHTML = cloudCard() +
-      '<div class="card"><div class="tip">本地还没有实时数据（上面的「云端预测」每天 17:00 自动生成）。' +
-      '想看实时赔率，回「预测」页点「拉取官网」。</div></div>';
-    if (!CLOUD) cloudLoad(function () { if (CLOUD) renderRec(); });
+    var dbg = '';
+    if (CLOUD) {
+      var ms = CLOUD.matches || [];
+      var live = 0;
+      for (var i2 = 0; i2 < ms.length; i2++) {
+        var c2 = ms[i2];
+        if (!c2.eu || c2.eu.length !== 3) continue;
+        var mm2 = { date: String(c2.mdate || c2.date || '').slice(0, 10),
+                    time: String(c2.time || '').slice(0, 5) };
+        if (!isStale(mm2, 8)) live++;
+      }
+      dbg = '<div class="card"><div class="tip" style="line-height:1.9">' +
+        '<b>云端数据：' + (CLOUD.updated || '未知时间') + '（' + ms.length + ' 场）</b><br>' +
+        '其中有 ' + live + ' 场还没过开球时间 8 小时。<br>' +
+        '<span style="color:#8A95A3">本地也没拉到实时赔率（「拉取官网」要消耗额度，' +
+        '12-01 才恢复）。所以现在没有可推荐的场次。</span></div>' +
+        '<div class="row" style="margin-top:10px"><div>' +
+        '<button class="mini" style="width:100%" onclick="cloudReload()">重新读云端</button>' +
+        '</div></div></div>';
+    } else {
+      dbg = '<div class="card"><div class="tip">正在读云端…如果一直不动，' +
+        '点下面的按钮重试。</div>' +
+        '<div class="row" style="margin-top:10px"><div>' +
+        '<button class="mini" style="width:100%" onclick="cloudReload()">重新读云端</button>' +
+        '</div></div></div>';
+    }
+    box.innerHTML = cloudCard() + dbg;
+    if (!CLOUD) cloudLoad(function () { renderRec(); });
     return;
   }
+  const fromCloud = all.length > 0 && all[0].src === 'cloud';
 
   function hdOdds(raw, idx) {
     const h = raw.had || {};
@@ -2592,7 +2658,21 @@ function recPredictions() {
   for (const m of ODDS) {
     if (m.st !== 'Selling' || !m.eu) continue;
     if (isStale(m, 4)) continue;
-    try { out.push({ m: m, r: predict(m.eu) }); } catch (e) {}
+    try { out.push({ m: m, r: predict(m.eu), src: 'live' }); } catch (e) {}
+  }
+  if (out.length) return out;
+  // 兜底：本地没有实时赔率时，用云端预测里的比赛
+  const cl = (typeof CLOUD !== 'undefined' && CLOUD && CLOUD.matches) ? CLOUD.matches : [];
+  for (const c of cl) {
+    if (!c.eu || c.eu.length !== 3) continue;
+    const mm = {
+      num: c.num || '', lg: c.lg || '', h: c.h || '', a: c.a || '',
+      eu: c.eu, st: 'Selling',
+      date: String(c.mdate || c.date || '').slice(0, 10),
+      time: String(c.time || '').slice(0, 5)
+    };
+    if (isStale(mm, 8)) continue;
+    try { out.push({ m: mm, r: predict(mm.eu), src: 'cloud' }); } catch (e) {}
   }
   return out;
 }
@@ -2615,6 +2695,13 @@ function renderRec() {
       pick: x => ({ txt: x.r.top3[0][1], p: x.r.top3[0][0], detail: '前三合计 ' + (x.r.p3 * 100).toFixed(0) + '%　前五 ' + x.r.top5.map(y => y[1]).join(' / ') }) }
   ];
   let h = '';
+  if (fromCloud) {
+    h += '<div class="card" style="border:1px solid #DCE7F2"><div class="tip" style="line-height:1.8">' +
+      '<b>下面是云端预测（每天 17:00 更新）</b>——本地没拉到实时赔率，' +
+      '所以用的是云端那一版。' +
+      ((typeof CLOUD !== 'undefined' && CLOUD && CLOUD.updated) ? '更新时间：' + CLOUD.updated : '') +
+      '</div></div>';
+  }
   for (const pool of POOLS) {
     const list = all.map(x => { const pk = pool.pick(x); return { m: x.m, r: x.r, txt: pk.txt, p: pk.p, detail: pk.detail }; })
       .filter(x => {

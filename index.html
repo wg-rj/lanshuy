@@ -342,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v138</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v140</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -875,6 +875,56 @@ function verdictCard(r, meta) {
       if (s0 > 0) { rp[0] /= s0; rp[1] = rp[1] * m / s0; rp[2] /= s0; }
     })();
     const mi = rp.indexOf(Math.max.apply(null, rp));
+    // 公平赔率 vs 竞彩给的
+    h += (function () {
+      var hh = null;
+      try {
+        var meta2 = (CUR || {}).meta || {};
+        var hd = ((meta2.jc || {}).hhad) || {};
+        if (!hd.h && CUR && CUR.m && CUR.m.raw) hd = (CUR.m.raw.hhad || {});
+        if (hd.h && hd.d && hd.a) {
+          var gl = String(hd.goalLine || '').replace('+', '');
+          if (Math.round(parseFloat(gl || '0')) === Math.round(line)) {
+            hh = [+hd.h, +hd.d, +hd.a];
+          }
+        }
+      } catch (e) { hh = null; }
+      if (!hh) return '';
+      var NM = ['让胜', '让平', '让负'];
+      var rows = '';
+      for (var k = 0; k < 3; k++) {
+        if (!(rp[k] > 0.001) || !(hh[k] > 1)) continue;
+        var fair = 1 / rp[k];
+        var gap = hh[k] / fair - 1;          // 负=赔率给少了=贵
+        var col, lab;
+        if (gap <= -0.05) { col = '#B0503A'; lab = '贵 ' + Math.round(-gap * 100) + '%'; }
+        else if (gap >= 0.05) { col = '#2E7D32'; lab = '便宜 ' + Math.round(gap * 100) + '%'; }
+        else { col = '#8A6D1F'; lab = '差不多'; }
+        rows += '<tr style="border-top:1px solid #eef2f7">' +
+          '<td style="padding:5px 2px">' + NM[k] + '</td>' +
+          '<td style="text-align:right;padding:5px 2px">' + fair.toFixed(2) + '</td>' +
+          '<td style="text-align:right;padding:5px 2px">' + hh[k].toFixed(2) + '</td>' +
+          '<td style="text-align:right;padding:5px 2px;color:' + col + ';font-weight:600">' +
+          lab + '</td></tr>';
+      }
+      if (!rows) return '';
+      return '<div style="margin-top:9px;padding:9px 11px;background:#F7F9FC;' +
+        'border:1px solid #E4EAF2;border-radius:9px">' +
+        '<b style="color:#0B1F33">这三档，哪档贵、哪档便宜</b><br>' +
+        '<span style="color:#8A95A3;font-size:12.5px">公平赔率 = 1 ÷ 模型算的概率' +
+        '　竞彩给的这个价，比公平价高还是低</span>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px">' +
+        '<tr style="color:#7A8797"><th style="text-align:left;padding:3px 2px">档位</th>' +
+        '<th style="text-align:right;padding:3px 2px">公平赔率</th>' +
+        '<th style="text-align:right;padding:3px 2px">竞彩给</th>' +
+        '<th style="text-align:right;padding:3px 2px">判断</th></tr>' +
+        rows + '</table>' +
+        '<div style="margin-top:6px;color:#8A95A3;font-size:12px;line-height:1.7">' +
+        '「贵」= 赔率给少了，长期买它亏得多；「便宜」= 相对划算。<br>' +
+        '但注意：三档里通常总有一档「便宜」，因为抽水摊在另外两档上——' +
+        '别看到「便宜」就以为有优势。</div></div>';
+    })();
+
     h += '<div style="padding:8px 2px;border-bottom:1px dashed #eef2f7;line-height:1.8">' +
          '<b style="color:#0B1F33">③ 让球 ' + (line > 0 ? '+' : '') + line + '：' +
          '让胜 ' + Math.round(rp[0]*100) + '%　让平 ' + Math.round(rp[1]*100) + '%　' +
@@ -4058,8 +4108,13 @@ function pGo() {
   h += '<div class="tip" style="margin-top:8px;color:' +
     (ret >= 0 ? '#2E7D32' : '#B0503A') + '">期望盈亏 <b>' + (ev >= 0 ? '+' : '') +
     ev.toFixed(1) + '</b> 注（回报率 ' + (ret * 100).toFixed(0) + '%）</div>';
-  h += '<div class="tip" style="margin-top:6px;color:#8A95A3">' +
-    '过关越多，抽水叠得越重：2 关约 77%、3 关约 68%、4 关约 60%。</div>';
+  h += '<div class="tip" style="margin-top:8px;padding:9px 11px;background:#FDECEA;' +
+    'border:1px solid #F5C6C0;border-radius:9px;color:#8B2E23;line-height:1.85">' +
+    '<b>过关越多，抽水叠得越重</b>（9,468 场实测，每场都买赔率最低那一方）：<br>' +
+    '单关每 100 元回 <b>89</b> 元　2 关回 <b>80</b> 元　' +
+    '3 关回 <b>71</b> 元　4 关回 <b>64</b> 元<br>' +
+    '<span style="color:#A0564A">串关不是提高收益，是把亏钱变得更「稳」：' +
+    '中奖次数变少、单次金额变大，长期均值反而更低。</span></div>';
   out.innerHTML = h;
 }
 window.pPreset = pPreset;

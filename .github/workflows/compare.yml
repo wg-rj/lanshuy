@@ -25,7 +25,9 @@ jobs:
         run: pip install pandas numpy openpyxl
 
       - name: 跑对比
-        run: python 比分对比.py --save --detail
+        run: |
+          python 比分对比.py --save --detail
+          python 让胜监测.py
 
       - name: 提交
         run: |

@@ -28,26 +28,27 @@ jobs:
         env:
           FABLE_KEY: ${{ secrets.FABLE_KEY }}
           FABLE_MODEL: anthropic/claude-fable-5.2
-        run: python fable_run.py
+        run: |
+          {
+            echo "=== 诊断 ==="
+            echo "key 长度 = ${#FABLE_KEY}"
+            echo "key 前缀 = ${FABLE_KEY:0:10}"
+            echo "model = $FABLE_MODEL"
+            echo "pwd = $(pwd)"
+            echo "今日预测.json 存在 = $([ -f 今日预测.json ] && echo yes || echo no)"
+            echo "=== 脚本输出 ==="
+          } > fable_debug.txt
+          python fable_run.py 2>&1 | tee -a fable_debug.txt
+          echo "退出码 = $?" >> fable_debug.txt
 
       - name: 提交结果
         run: |
           git config user.name  "lanshu-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add 台账_Fable.csv 2>/dev/null || true
+          git add -A
           if git diff --staged --quiet; then
             echo "没有变化"
           else
             git commit -m "双模型预测 $(date -u '+%Y-%m-%d %H:%M') UTC"
             git push
-          fi
-
-      - name: 把表格打到日志里
-        if: always()
-        run: |
-          if [ -f 台账_Fable.csv ]; then
-            echo "===== 台账_Fable.csv ====="
-            cat 台账_Fable.csv
-          else
-            echo "没生成 台账_Fable.csv"
           fi

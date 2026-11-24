@@ -1,12 +1,12 @@
 === 诊断 ===
-key 长度 = 81
-key 前缀 = Secret: sk
+key 长度 = 73
+key 前缀 = sk-or-v1-a
 model = anthropic/claude-fable-5.2
 pwd = /home/runner/work/lanshuy/lanshuy
 今日预测.json 存在 = yes
 === 脚本输出 ===
 今日 15 场（云端更新 2026-11-23 18:02）
-Fable HTTP 401 {"error":{"message":"Missing Authentication header","code":401}}
+Fable HTTP 402 {"error":{"message":"Insufficient credits. This account never purchased credits. Make sure your key is on the correct account or org, and if so, purchase more at https://openrouter.ai/settings/credits","code":402,"metadata":{"limit_source":"openrouter_credits","remedy_hint":"Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance."}}}
 
 编号      对阵                    我的         概率　Fable     F概率　F比分   
 ----------------------------------------------------------------------------

@@ -14,8 +14,8 @@ from datetime import datetime, timedelta, timezone
 
 CST = timezone(timedelta(hours=8))
 OUT = "赔率历史.csv"
-API = ("https://webapi.sporttery.cn/gateway/jc/football/"
-       "getMatchCalculatorV1.qry?poolCode=hhad,had,crs,ttg,hafu&channel=c")
+# 用阿里云自己的函数（noodds=1 不消耗任何额度），GitHub Actions 在海外也能访问
+API = "https://jcdata-pxigzkgjcb.cn-hangzhou.fcapp.run?noodds=1"
 H = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

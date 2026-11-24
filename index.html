@@ -342,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v137</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v138</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -413,6 +413,7 @@ header .sub{font-size:14.5px}
       <button data-s="parlay">过关</button>
       <button data-s="review">复盘</button>
       <button data-s="cover">覆盖</button>
+      <button data-s="rank6">六赔</button>
     </div>
     <div class="tip" id="sumTip" style="margin-top:8px"></div>
   </div>
@@ -3561,6 +3562,101 @@ function chipRow(title, dim, all, pickFn) {
   return h;
 }
 
+const RK6 = [
+  { r: 6, name: '赔率最高', odds: 1.50, hit: 60.0, ev: 0.903,
+    dist: [37.2, 0.0, 16.0, 18.1, 0.0, 28.7] },
+  { r: 5, name: '', odds: 2.08, hit: 44.1, ev: 0.915,
+    dist: [27.1, 0.2, 19.5, 24.8, 0.0, 28.5] },
+  { r: 4, name: '', odds: 2.88, hit: 30.4, ev: 0.875,
+    dist: [13.9, 17.3, 16.9, 23.7, 5.7, 22.5] },
+  { r: 3, name: '', odds: 3.39, hit: 26.2, ev: 0.888,
+    dist: [5.1, 33.2, 7.7, 3.4, 48.2, 2.4] },
+  { r: 2, name: '', odds: 4.07, hit: 22.0, ev: 0.896,
+    dist: [2.3, 46.1, 4.2, 5.4, 39.4, 2.4] },
+  { r: 1, name: '赔率最低', odds: 5.35, hit: 17.3, ev: 0.925,
+    dist: [14.4, 3.2, 35.6, 24.6, 6.7, 15.5] }
+];
+const RK6_NAME = ['主胜', '平', '客胜', '让胜', '让平', '让负'];
+
+function renderRank6() {
+  const box = document.getElementById('sumBody');
+  const tip = document.getElementById('sumTip');
+  if (!box) return;
+
+  let h = '<div class="card"><div class="title"><span>六赔结构</span>' +
+    '<span class="tip">9,418 场</span></div>';
+  h += '<div class="tip" style="line-height:1.85">' +
+    '把一场比赛的六个赔率<b>从高到低排</b>（胜平负 3 个 + 让球 3 个），' +
+    '每个位置长什么样，全库统计如下。<br>' +
+    '<span style="color:#8A95A3">这不是预测，是「快速读表」——' +
+    '看一张赔率表就知道哪一格是平、哪一格是让平。</span></div></div>';
+
+  // 分布表
+  h += '<div class="card"><div class="title"><span>位置 → 玩法</span></div>';
+  h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;' +
+    'font-size:12px">';
+  h += '<tr style="color:#7A8797"><th style="text-align:left;padding:5px 2px">排位</th>';
+  for (const n of RK6_NAME) {
+    h += '<th style="text-align:right;padding:5px 1px">' + n + '</th>';
+  }
+  h += '</tr>';
+  for (const p of RK6) {
+    h += '<tr style="border-top:1px solid #eef2f7">';
+    h += '<td style="padding:6px 2px;white-space:nowrap">' +
+      '<b>' + p.r + '</b>' + (p.name ? '<br><span style="font-size:10.5px;color:#94A1B2">' +
+      p.name + '</span>' : '') + '</td>';
+    for (let i = 0; i < 6; i++) {
+      const v = p.dist[i];
+      let col = '#B7C0CB', bold = '';
+      if (v >= 30) { col = '#0E6B66'; bold = 'font-weight:700'; }
+      else if (v >= 15) { col = '#4A7A96'; bold = 'font-weight:600'; }
+      h += '<td style="text-align:right;padding:6px 1px;color:' + col + ';' + bold + '">' +
+        (v < 0.05 ? '·' : v.toFixed(0)) + '</td>';
+    }
+    h += '</tr>';
+  }
+  h += '</table></div>';
+  h += '<div class="tip" style="margin-top:8px;color:#8A95A3">数字是百分比，· 表示几乎不出现</div></div>';
+
+  // 命中与期望
+  h += '<div class="card"><div class="title"><span>每个位置全买</span>' +
+    '<span class="tip">期望 = 命中率 × 赔率</span></div>';
+  h += '<div class="strow" style="font-size:12px;color:#7A8797">' +
+    '<span style="width:44px">排位</span><span style="flex:1">平均赔率</span>' +
+    '<span style="width:56px;text-align:right">命中率</span>' +
+    '<span style="width:48px;text-align:right">期望</span></div>';
+  for (const p of RK6) {
+    const good = p.ev >= 0.92;
+    h += '<div class="strow" style="padding:8px 2px">' +
+      '<span style="width:44px"><b>' + p.r + '</b></span>' +
+      '<span style="flex:1;color:#4A5A6A">' + p.odds.toFixed(2) + '</span>' +
+      '<span style="width:56px;text-align:right">' + p.hit.toFixed(1) + '%</span>' +
+      '<span style="width:48px;text-align:right;font-weight:600;color:' +
+      (good ? '#2E7D32' : '#B0503A') + '">' + p.ev.toFixed(3) + '</span></div>';
+  }
+  h += '<div class="tip" style="margin-top:10px;padding:9px 11px;background:#FDECEA;' +
+    'border:1px solid #F5C6C0;border-radius:9px;color:#8B2E23;line-height:1.8">' +
+    '<b>全部低于 1</b>——最好的 0.925，最差的 0.875。<br>' +
+    '<span style="color:#A0564A">这符合竞彩 88.4% 的返还率。' +
+    '所以这张表<b>不能用来下注</b>，只能用来读表。</span></div></div>';
+
+  // 人话用法
+  h += '<div class="card"><div class="title"><span>怎么用</span></div>';
+  h += '<div class="tip" style="line-height:2">' +
+    '<b>① 一眼认出平赔</b><br>' +
+    '第 2、第 3 位 85% 以上是「平」或「让平」——扫一眼中间两格就知道。<br><br>' +
+    '<b>② 一眼认出哪边被看好</b><br>' +
+    '第 1 位（最低赔）35.6% 是客胜、24.6% 是让胜，基本都是被看好那一边。<br><br>' +
+    '<b>③ 发现异常表</b><br>' +
+    '如果中间两格<b>不是</b>平或让平，说明这场结构特殊（通常是一边倒），' +
+    '值得多看两眼。<br><br>' +
+    '<b>④ 别按位置买</b><br>' +
+    '每个位置的期望都低于 1，买哪个位置都亏，只是亏多亏少的区别。</div></div>';
+
+  box.innerHTML = h;
+  if (tip) tip.textContent = '六个赔率排排坐，看位置就知道是什么玩法';
+}
+
 let COVER_SEL = {};
 
 function _coverList() {
@@ -3978,6 +4074,7 @@ function renderSum() {
   if (SUM_VIEW === 'parlay') { renderParlay(); return; }
   if (SUM_VIEW === 'review') { renderReview(); return; }
   if (SUM_VIEW === 'cover') { renderCover(); return; }
+  if (SUM_VIEW === 'rank6') { renderRank6(); return; }
   const all = todayMatches();
   if (!all.length) {
     box.innerHTML = '<div class="card"><div class="tip">还没有比赛数据。回「预测」页点「拉取」。</div></div>';

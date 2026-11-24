@@ -1,0 +1,50 @@
+name: 抓竞彩赔率快照
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 2 * * *"
+    - cron: "45 13 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  grab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 取代码
+        uses: actions/checkout@v4
+
+      - name: 装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 抓赔率
+        run: python 抓赔率.py
+
+      - name: 提交
+        run: |
+          git config user.name  "lanshu-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "没有变化"
+          else
+            git commit -m "赔率快照 $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
+
+      - name: 打印结果
+        if: always()
+        run: |
+          if [ -f 赔率历史.csv ]; then
+            echo "===== 行数 ====="
+            wc -l 赔率历史.csv
+            echo "===== 最后 3 行（截断）====="
+            tail -3 赔率历史.csv | cut -c1-200
+          else
+            echo "没生成 赔率历史.csv"
+          fi

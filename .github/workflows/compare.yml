@@ -1,0 +1,52 @@
+name: 模型 vs 市场（比分）
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 1 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  cmp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 取代码
+        uses: actions/checkout@v4
+
+      - name: 装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 装依赖
+        run: pip install pandas numpy openpyxl
+
+      - name: 跑对比
+        run: python 比分对比.py --save --detail
+
+      - name: 提交
+        run: |
+          git config user.name  "lanshu-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "没有变化"
+          else
+            git commit -m "比分对比 $(date -u '+%Y-%m-%d')"
+            git push
+          fi
+
+      - name: 打印战绩
+        if: always()
+        run: |
+          if [ -f 比分战绩.csv ]; then
+            echo "===== 累计 ====="
+            wc -l 比分战绩.csv
+            head -1 比分战绩.csv
+            tail -5 比分战绩.csv
+          else
+            echo "还没生成 比分战绩.csv"
+          fi

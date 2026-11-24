@@ -1,0 +1,54 @@
+name: 双模型预测（我 + Fable）
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # 北京 17:20，等「每日云端预测」17:00 跑完
+    - cron: "20 9 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  dual:
+    runs-on: ubuntu-latest      # 跑在微软美国机房，绕开地区封锁
+    timeout-minutes: 20
+    steps:
+      - name: 取代码
+        uses: actions/checkout@v4
+
+      - name: 装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 装依赖
+        run: pip install pandas numpy
+
+      - name: 跑双模型
+        env:
+          FABLE_KEY: ${{ secrets.FABLE_KEY }}
+          FABLE_MODEL: anthropic/claude-fable-5.2
+        run: python fable_run.py
+
+      - name: 提交结果
+        run: |
+          git config user.name  "lanshu-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add 台账_Fable.csv 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "没有变化"
+          else
+            git commit -m "双模型预测 $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
+
+      - name: 把表格打到日志里
+        if: always()
+        run: |
+          if [ -f 台账_Fable.csv ]; then
+            echo "===== 台账_Fable.csv ====="
+            cat 台账_Fable.csv
+          else
+            echo "没生成 台账_Fable.csv"
+          fi

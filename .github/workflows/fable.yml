@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
 
       - name: 装依赖
-        run: pip install pandas numpy
+        run: pip install pandas numpy openpyxl
 
       - name: 跑双模型
         env:

@@ -342,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v140</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v142</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -414,6 +414,7 @@ header .sub{font-size:14.5px}
       <button data-s="review">复盘</button>
       <button data-s="cover">覆盖</button>
       <button data-s="rank6">六赔</button>
+      <button data-s="fun">娱乐</button>
     </div>
     <div class="tip" id="sumTip" style="margin-top:8px"></div>
   </div>
@@ -3612,6 +3613,35 @@ function chipRow(title, dim, all, pickFn) {
   return h;
 }
 
+const FUN_DIST = {"1A":{"n":514,"s":{"0:1":105,"1:2":100,"2:4":12,"0:3":44,"0:2":66,"1:3":41,"0:4":29,"2:3":42,"1:4":20,"3:4":10,"0:6":7,"1:5":11,"0:5":13,"1:6":3,"2:5":4},"h":{"负负":208,"平负":111,"胜负":19}},"1D":{"n":334,"s":{"0:0":79,"1:1":149,"2:2":90,"3:3":15},"h":{"胜平":46,"负平":39,"平平":114}},"1H":{"n":1105,"s":{"1:0":167,"2:0":164,"2:1":162,"4:0":78,"3:1":104,"3:0":154,"4:2":24,"7:0":4,"6:1":8,"4:1":62,"5:0":29,"6:0":14,"4:3":8,"5:1":33,"5:2":13,"5:3":6,"3:2":64,"6:2":5},"h":{"胜胜":469,"平胜":194,"负胜":39}},"2A":{"n":980,"s":{"0:2":148,"0:1":230,"0:4":33,"1:3":92,"1:2":234,"1:5":13,"2:3":58,"0:5":9,"2:4":17,"0:6":4,"1:4":30,"1:6":4,"0:3":74,"3:5":4,"3:4":14,"2:5":6,"4:5":3},"h":{"负负":344,"平负":220,"胜负":52}},"2D":{"n":781,"s":{"0:0":198,"2:2":193,"3:3":38,"1:1":343,"4:4":9},"h":{"平平":295,"胜平":92,"负平":108}},"2H":{"n":1379,"s":{"3:1":139,"2:0":231,"1:0":300,"3:2":96,"4:1":49,"4:0":68,"2:1":278,"3:0":107,"5:1":22,"5:0":21,"4:2":27,"6:1":4,"6:0":9,"5:2":5,"4:3":13,"5:3":3},"h":{"平胜":287,"胜胜":529,"负胜":53}},"3A":{"n":912,"s":{"1:3":82,"0:1":200,"1:2":225,"0:2":143,"0:4":17,"2:4":17,"2:5":7,"0:3":80,"1:4":30,"1:5":12,"2:3":67,"3:4":15,"2:6":3,"0:5":4,"3:5":3},"h":{"平负":220,"负负":316,"胜负":49}},"3D":{"n":801,"s":{"1:1":391,"2:2":165,"0:0":213,"3:3":29},"h":{"平平":312,"负平":105,"胜平":106}},"3H":{"n":1072,"s":{"1:0":269,"3:2":76,"2:0":156,"2:1":261,"4:2":23,"3:0":74,"3:1":94,"4:0":30,"4:1":41,"5:3":7,"4:3":6,"5:1":16,"5:2":7,"5:0":6},"h":{"胜胜":377,"负胜":54,"平胜":244}},"4A":{"n":563,"s":{"0:2":83,"1:2":147,"2:4":15,"0:3":40,"1:3":41,"0:1":133,"2:3":48,"0:4":14,"1:5":4,"3:4":7,"1:4":18,"2:5":3,"0:5":4},"h":{"负负":201,"平负":128,"胜负":31}},"4D":{"n":469,"s":{"0:0":154,"2:2":83,"1:1":210,"3:3":22},"h":{"平平":198,"负平":62,"胜平":52}},"4H":{"n":557,"s":{"1:0":123,"3:1":52,"6:1":3,"2:1":138,"3:2":53,"2:0":80,"4:2":11,"5:1":8,"3:0":34,"4:3":8,"4:0":15,"5:0":5,"4:1":21,"5:2":3},"h":{"负胜":29,"胜胜":186,"平胜":148}},"5D":{"n":1,"s":{},"h":{"平平":1}}};
+const FUN_BD = [['1.0-1.4',1.0,1.4],['1.4-1.8',1.4,1.8],['1.8-2.2',1.8,2.2],['2.2-2.8',2.2,2.8],['2.8-3.6',2.8,3.6],['3.6+',3.6,99]];
+const FUN_HFNAME = {aa:'负负',ad:'负平',ah:'负胜',da:'平负',dd:'平平',dh:'平胜',ha:'胜负',hd:'胜平',hh:'胜胜'};
+const FUN_HFALLOW = {H:['胜胜','平胜','负胜'],D:['平平','胜平','负平'],A:['负负','平负','胜负']};
+let FUN_ROWS = null;
+
+function _funBand(o) {
+  for (var i = 0; i < FUN_BD.length; i++) {
+    if (o >= FUN_BD[i][1] && o < FUN_BD[i][2]) return String(i + 1);
+  }
+  return '6';
+}
+function _csv(t) {
+  var rows = [], cur = [], f = '', q = false;
+  for (var i = 0; i < t.length; i++) {
+    var c = t[i];
+    if (q) {
+      if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { cur.push(f); f = ''; }
+    else if (c === '\n') { cur.push(f); rows.push(cur); cur = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f || cur.length) { cur.push(f); rows.push(cur); }
+  return rows;
+}
+function _num(x) { var v = parseFloat(x); return (v > 1) ? v : null; }
+
 const RK6 = [
   { r: 6, name: '赔率最高', odds: 1.50, hit: 60.0, ev: 0.903,
     dist: [37.2, 0.0, 16.0, 18.1, 0.0, 28.7] },
@@ -3830,6 +3860,180 @@ window.cvTog = function (i) {
   renderCover();
 };
 window.cvClear = function () { COVER_SEL = {}; renderCover(); };
+
+function renderFun() {
+  const box = document.getElementById('sumBody');
+  const tip = document.getElementById('sumTip');
+  if (!box) return;
+  if (tip) tip.textContent = '先定方向，再在方向里挑赔率高、历史真开过的赛果';
+
+  if (FUN_ROWS === null) {
+    box.innerHTML = '<div class="card"><div class="tip">正在读赔率快照…</div></div>';
+    fetchTO('https://raw.githubusercontent.com/wg-rj/lanshuy/main/%E8%B5%94%E7%8E%87%E5%8E%86%E5%8F%B2.csv?v=' +
+            Date.now(), 15000, { cache: 'no-store' })
+      .then(r => r.text())
+      .then(t => {
+        const rows = _csv(t);
+        const head = rows.shift() || [];
+        const ix = {};
+        head.forEach((h, i) => { ix[h.trim()] = i; });
+        FUN_ROWS = rows.filter(x => x.length > 5).map(x => {
+          const o = {};
+          for (const k in ix) o[k] = x[ix[k]];
+          return o;
+        });
+        renderFun();
+      })
+      .catch(e => {
+        box.innerHTML = '<div class="card"><div class="tip">读赔率快照失败：' +
+          String(e && e.message || e).slice(0, 80) + '</div></div>';
+      });
+    return;
+  }
+
+  // 每场取最新一条
+  const best = {};
+  for (const r of FUN_ROWS) {
+    const k = (r['业务日'] || '') + r['编号'];
+    const cur = best[k];
+    if (!cur || String(r['抓取时间']) > String(cur['抓取时间'])) best[k] = r;
+  }
+  const list = Object.keys(best).map(k => best[k])
+    .sort((a, b) => String(a['开球']).localeCompare(String(b['开球'])));
+
+  let h = '<div class="card"><div class="title"><span>娱乐单</span>' +
+    '<span class="tip">' + list.length + ' 场</span></div>';
+  h += '<div class="tip" style="line-height:1.85">' +
+    '先看<b>方向</b>，再只在这个方向里挑<b>赔率高、但历史上真开过</b>的赛果。<br>' +
+    '<span style="color:#8A95A3">按「热门赔率档 + 方向」查 9,468 场历史。' +
+    '这是娱乐单，不是优势单——三类都是高赔低概率。</span></div></div>';
+
+  let shown = 0;
+  for (const r of list) {
+    let crs = {}, hfu = {};
+    try { crs = JSON.parse(r['比分赔率'] || '{}'); } catch (e) { }
+    try { hfu = JSON.parse(r['半全场赔率'] || '{}'); } catch (e) { }
+    if (!crs || !hfu || !Object.keys(crs).length) continue;
+    const o1 = _num(r['胜']), o2 = _num(r['平']), o3 = _num(r['负']);
+    if (!o1 || !o2 || !o3) continue;
+    const iv = [1 / o1, 1 / o2, 1 / o3];
+    const t = iv[0] + iv[1] + iv[2];
+    const p = iv.map(x => x / t);
+    const pi = p.indexOf(Math.max.apply(null, p));
+    const RES = ['H', 'D', 'A'];
+    const res = RES[pi];
+    const fv = Math.min(o1, o3);
+    const bd = _funBand(fv);
+    const pack = FUN_DIST[bd + res];
+    if (!pack) continue;
+
+    // 比分候选
+    const sc = [];
+    for (const s in crs) {
+      const od = _num(crs[s]);
+      if (!od || od < 15) continue;
+      const q = s.split(':');
+      const hh = +q[0], aa = +q[1];
+      const okd = res === 'H' ? hh > aa : (res === 'D' ? hh === aa : hh < aa);
+      if (!okd) continue;
+      const cnt = (pack.s || {})[s] || 0;
+      if (cnt < 3) continue;
+      sc.push({ s: s, o: od, c: cnt, r: cnt / pack.n });
+    }
+    sc.sort((a, b) => b.r - a.r);
+
+    // 半全场候选
+    const hf = [];
+    for (const k in hfu) {
+      const nm = FUN_HFNAME[k];
+      if (!nm || FUN_HFALLOW[res].indexOf(nm) < 0) continue;
+      const od = _num(hfu[k]);
+      if (!od || od < 8) continue;
+      const cnt = (pack.h || {})[nm] || 0;
+      if (cnt < 3) continue;
+      hf.push({ s: nm, o: od, c: cnt, r: cnt / pack.n });
+    }
+    hf.sort((a, b) => b.r - a.r);
+    if (!sc.length && !hf.length) continue;
+    shown++;
+
+    const lv = x => x >= 0.06 ? ['高', '#2E7D32'] : (x >= 0.03 ? ['中', '#8A6D1F'] : ['低', '#B0503A']);
+    const DIRNAME = { H: '主胜', D: '平局', A: '客胜' };
+
+    h += '<div class="card"><div class="title"><span>' +
+      (r['编号'] || '') + ' ' + r['主队'] + ' vs ' + r['客队'] +
+      '</span><span class="tip">' + String(r['开球'] || '').slice(5, 16) + '</span></div>';
+    h += '<div class="tip" style="color:#607080">方向 <b>' + DIRNAME[res] + '</b> ' +
+      (p[pi] * 100).toFixed(1) + '%　（档位 ' + bd + '，同类 ' + pack.n + ' 场）</div>';
+
+    if (sc.length) {
+      h += '<div class="sv" style="margin-top:6px"><div class="sh">' +
+        '<span>比分</span><span>赔率</span><span>同类占比</span><span>把握</span></div>';
+      for (const x of sc.slice(0, 2)) {
+        const L = lv(x.r);
+        h += '<div class="sr"><span><b>' + x.s + '</b></span>' +
+          '<span>' + x.o.toFixed(1) + '</span>' +
+          '<span>' + (x.r * 100).toFixed(1) + '%</span>' +
+          '<span style="color:' + L[1] + ';font-weight:600">' + L[0] + '</span></div>';
+      }
+      h += '</div>';
+    }
+    if (hf.length) {
+      h += '<div class="sv" style="margin-top:6px"><div class="sh">' +
+        '<span>半全场</span><span>赔率</span><span>同类占比</span><span>把握</span></div>';
+      for (const x of hf.slice(0, 2)) {
+        const L = lv(x.r);
+        h += '<div class="sr"><span><b>' + x.s + '</b></span>' +
+          '<span>' + x.o.toFixed(1) + '</span>' +
+          '<span>' + (x.r * 100).toFixed(1) + '%</span>' +
+          '<span style="color:' + L[1] + ';font-weight:600">' + L[0] + '</span></div>';
+      }
+      h += '</div>';
+    }
+    // ③ 胜平负 + 让球
+    (function () {
+      var line = parseFloat(r['让球线']);
+      var gl = [];
+      var push = function (nm, od) {
+        var o = _num(od);
+        if (o) gl.push({ s: nm, o: o, r: 1 / o });
+      };
+      if (res === 'H') { push('让胜', r['让胜']); push('让平', r['让平']); }
+      else if (res === 'A') { push('让平', r['让平']); push('让负', r['让负']); }
+      else { if (line < 0) push('让负', r['让负']); else push('让胜', r['让胜']); }
+      if (!gl.length) return;
+      gl.sort(function (a, b) { return b.o - a.o; });
+      var L = function (x) {
+        return x >= 0.35 ? ['高', '#2E7D32']
+          : (x >= 0.2 ? ['中', '#8A6D1F'] : ['低', '#B0503A']);
+      };
+      var lv0 = L(p[pi]);
+      h += '<div class="sv" style="margin-top:6px"><div class="sh">' +
+        '<span>胜平负 / 让球</span><span>赔率</span><span>隐含</span><span>把握</span></div>';
+      h += '<div class="sr"><span><b>' + DIRNAME[res] + '</b></span>' +
+        '<span>' + [o1, o2, o3][pi].toFixed(2) + '</span>' +
+        '<span>' + (p[pi] * 100).toFixed(1) + '%</span>' +
+        '<span style="color:' + lv0[1] + ';font-weight:600">' + lv0[0] + '</span></div>';
+      for (var gi = 0; gi < gl.length; gi++) {
+        var x = gl[gi];
+        var lx = L(x.r);
+        h += '<div class="sr"><span>' + x.s + '</span>' +
+          '<span>' + x.o.toFixed(2) + '</span>' +
+          '<span>' + (x.r * 100).toFixed(1) + '%</span>' +
+          '<span style="color:' + lx[1] + ';font-weight:600">' + lx[0] + '</span></div>';
+      }
+      h += '</div>';
+    })();
+
+    h += '</div>';
+  }
+
+  if (!shown) {
+    h += '<div class="card"><div class="tip">今天的快照里没有符合条件的场次' +
+      '（可能是还没抓到，或者比分/半全场赔率不全）。</div></div>';
+  }
+  box.innerHTML = h;
+}
 
 function _hcAct(result, line) {
   const q = String(result).split('-').map(Number);
@@ -4130,6 +4334,7 @@ function renderSum() {
   if (SUM_VIEW === 'review') { renderReview(); return; }
   if (SUM_VIEW === 'cover') { renderCover(); return; }
   if (SUM_VIEW === 'rank6') { renderRank6(); return; }
+  if (SUM_VIEW === 'fun') { renderFun(); return; }
   const all = todayMatches();
   if (!all.length) {
     box.innerHTML = '<div class="card"><div class="tip">还没有比赛数据。回「预测」页点「拉取」。</div></div>';

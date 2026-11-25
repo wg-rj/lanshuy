@@ -342,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v142</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v143</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -2499,24 +2499,63 @@ renderRec = function () {
     if (pool.name === '比分（娱乐高配）') {
       // 娱乐高配：取单场比分概率最高的前 6，赔率用欧赔反推的单点赔率
       h += '<div class="card"><div class="title"><span>比分（娱乐高配）</span>' +
-           '<span class="badge b-low">高赔 · 期望≈0.55</span></div>';
-      h += '<div class="tip">比分的赔率通常是 6~15 倍，期望值只有 0.5 左右——纯粹娱乐，别当真</div>';
+           '<span class="badge b-low">按方向挑 · 历史验证</span></div>';
+      h += '<div class="tip" style="line-height:1.85">' +
+           '先定方向，<b>只在方向里挑「赔率高、但历史上真开过」的比分</b>。<br>' +
+           '<span style="color:#8A95A3">按「热门赔率档 + 方向」查 9,468 场历史。' +
+           '比分抽水 31.5%，这是娱乐，不是优势。</span></div>';
       const list = all.map(x => {
-        const _t = x.r.top3[0] || [];
-        const p = +_t[0] || 0;            // top3 是 [概率, 比分]
-        const sc = _t[1] || '—';
-        const od = p > 0 ? (0.88 / p) : 0;   // 竞彩报价 ≈ 返还率 / 概率
-        return { m: x.m, txt: sc, p: p, od: od, pD: x.r.p[1] };
-      }).sort((a, b) => b.p - a.p);
-      for (const x of list.slice(0, 6)) {
-        h += '<div class="strow" style="padding:11px 2px">' +
-             '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a + '</span>' +
-             '<span style="width:64px;text-align:right;font-weight:700">' + x.txt + '</span>' +
-             '<span style="width:56px;text-align:right;color:#0E6B66">' + (x.p * 100).toFixed(1) + '%</span>' +
-             '<span style="width:52px;text-align:right">≈' + x.od.toFixed(1) + '</span>' +
-             '<span style="width:54px;text-align:right;color:#C0504D">' + (x.p * x.od).toFixed(2) + '</span></div>';
+        const p = x.r.p;
+        const pi = p.indexOf(Math.max.apply(null, p));
+        const RES = ['H', 'D', 'A'][pi];
+        const eu = x.m.eu || [];
+        const fv = Math.min((+eu[0] > 1 ? +eu[0] : 99), (+eu[2] > 1 ? +eu[2] : 99));
+        const bd = _funBand(fv);
+        const pack = FUN_DIST[bd + RES];
+        if (!pack || !pack.s) return null;
+        const scan = function (lo, hi) {
+          let b = null;
+          for (const s in pack.s) {
+            const cnt = pack.s[s];
+            const sh = cnt / pack.n;
+            if (sh < lo || sh > hi) continue;
+            const q = s.split(':');
+            const hh = +q[0], aa = +q[1];
+            const okd = RES === 'H' ? hh > aa : (RES === 'D' ? hh === aa : hh < aa);
+            if (!okd) continue;
+            if (!b || cnt > b.cnt) b = { s: s, cnt: cnt, sh: sh };
+          }
+          return b;
+        };
+        let best = scan(0.02, 0.10);          // 首选：赔率高但不算瞎猜
+        if (!best) best = scan(0.01, 0.18);   // 兜底：放宽
+        if (!best) return null;
+        return { m: x.m, txt: best.s, sh: best.sh, cnt: best.cnt,
+                 n: pack.n, res: RES };
+      }).filter(Boolean).sort((a, b) => b.sh - a.sh);
+      if (!list.length) {
+        h += '<div class="tip" style="color:#B0503A">今天没有符合条件的场次</div>';
+      } else {
+        h += '<div class="strow" style="font-size:12px;color:#7A8797;padding-bottom:4px">' +
+             '<span style="flex:1">比赛</span><span style="width:52px;text-align:right">比分</span>' +
+             '<span style="width:60px;text-align:right">同类占比</span>' +
+             '<span style="width:56px;text-align:right">同类场次</span></div>';
+        for (const x of list.slice(0, 8)) {
+          const col = x.sh >= 0.06 ? '#2E7D32' : (x.sh >= 0.035 ? '#8A6D1F' : '#B0503A');
+          h += '<div class="strow" style="padding:10px 2px">' +
+               '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a +
+               '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+               (x.res === 'H' ? '方向主胜' : (x.res === 'D' ? '方向平局' : '方向客胜')) +
+               '</s></span>' +
+               '<span style="width:52px;text-align:right;font-weight:700">' + x.txt + '</span>' +
+               '<span style="width:60px;text-align:right;color:' + col + '">' +
+               (x.sh * 100).toFixed(1) + '%</span>' +
+               '<span style="width:56px;text-align:right;color:#8A95A3">' + x.cnt + '</span></div>';
+        }
       }
-      h += '<div class="tip" style="margin-top:10px">⚠ 比分串关：两场都中概率不到 2%，纯彩票</div>';
+      h += '<div class="tip" style="margin-top:10px;color:#8A95A3">' +
+           '「同类占比」= 同赔率档同方向里，这个比分出现的比例。' +
+           '2%~10% 之间才算「赔率高但不算瞎猜」。</div>';
       h += '</div>';
       continue;
     }

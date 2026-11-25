@@ -342,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v143</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v146</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -948,6 +948,47 @@ function verdictCard(r, meta) {
   const top1 = (r.top5 && r.top5[0]) ? r.top5[0] : (r.top3 && r.top3[0] ? r.top3[0] : null);
   h += '<div style="padding:8px 2px;line-height:1.8">' +
        '<b style="color:#0B1F33">④ 比分</b><br>';
+  (function () {
+    try {
+      var Mx = CUR && CUR.m ? CUR.m : null;
+      if (!Mx) return;
+      var nm = Mx.length;
+      var bands = [];
+      for (var d = 1; d <= 3; d++) {
+        var tot = 0, cells = [];
+        for (var i = 0; i < nm; i++) {
+          for (var j = 0; j < nm; j++) {
+            if (i - j !== d && !(d === 3 && i - j > 3)) continue;
+            var p = Mx[i][j];
+            tot += p;
+            if (i - j === d) cells.push([p, i + '-' + j]);
+          }
+        }
+        cells.sort(function (a, b) { return b[0] - a[0]; });
+        bands.push({ d: d, p: tot, top: cells.slice(0, 2) });
+      }
+      var line = '';
+      for (var k = 0; k < bands.length; k++) {
+        var b = bands[k];
+        if (b.p < 0.01) continue;
+        var lab = b.d === 3 ? '赢3球+' : ('赢' + b.d + '球');
+        line += '<div style="display:flex;gap:6px;padding:2px 0">' +
+          '<span style="width:60px;color:#607080">' + lab + '</span>' +
+          '<span style="width:52px;color:#0E6B66;font-weight:600">' +
+          (b.p * 100).toFixed(1) + '%</span>' +
+          '<span style="flex:1;color:#8A95A3">' +
+          b.top.map(function (t) { return t[1] + ' ' + (t[0] * 100).toFixed(1) + '%'; }).join('　') +
+          '</span></div>';
+      }
+      if (line) {
+        h += '<div style="margin:6px 0 8px;padding:8px 10px;background:#F7F9FC;' +
+          'border:1px solid #E4EAF2;border-radius:8px;font-size:12.5px;line-height:1.7">' +
+          '<b style="color:#4A5A6A">赢几个（每档下面挂它自己的比分）</b>' + line +
+          '<div style="margin-top:4px;color:#A08A5A">档位是合计、比分是单格——' +
+          '单格最大不代表这一档最大。</div></div>';
+      }
+    } catch (e) { }
+  })();
   if (top1) {
     h += '<span style="color:#607080">模型首选 <b>' + top1[1] + ' ' + pct(top1[0]) + '</b>' +
          (kb && kb.top[0] ? '　·　最接近30场 <b>' + kb.top[0][0] + ' ' +
@@ -2050,7 +2091,7 @@ function cloudCard() {
     h += '<div class="strow" style="padding:11px 2px">' +
          '<span style="flex:1">' + x.h + ' vs ' + x.a +
          '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
-         x.lg + '　' + (x.date || '').slice(5) + ' ' + (x.time || '') + '</s></span>' +
+         _mLbl(x) + '</s></span>' +
          '<span style="width:56px;text-align:right;font-weight:600">' + x.pick + '</span>' +
          '<span style="width:48px;text-align:right;color:' + col + ';font-weight:600">' +
          Math.round(x.prob * 100) + '%</span>' +
@@ -2106,7 +2147,7 @@ function cloudCard() {
         h += '<div class="strow" style="padding:9px 2px;opacity:.75">' +
           '<span style="flex:1">' + x.h + ' vs ' + x.a +
           '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
-          x.lg + '　' + (x.date || '').slice(5) + ' ' + (x.time || '') +
+          _mLbl(x) +
           '　已完赛</s></span>' +
           '<span style="width:56px;text-align:right;font-weight:600">' + x.pick + '</span>' +
           '<span style="width:48px;text-align:right;color:#94A1B2">' +
@@ -2198,7 +2239,7 @@ function evZoneCard(all) {
     h += '<div class="strow" style="padding:11px 2px">' +
          '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a +
          '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
-         (x.m.lg || '') + ' ' + (x.m.num || '') + '</s></span>' +
+         _mLbl(x.m) + '</s></span>' +
          '<span style="width:56px;text-align:right;font-weight:600">' + x.pick + '</span>' +
          '<span style="width:52px;text-align:right;color:' + col + ';font-weight:700">' +
          Math.round(x.p * 100) + '%</span>' +
@@ -2264,7 +2305,7 @@ function leanCard(all, pickOf) {
     h += '<div style="padding:12px 2px;border-bottom:1px dashed #eef2f7">';
     h += '<div style="font-weight:600;color:#0B1F33">' + x.m.h + ' vs ' + x.m.a +
          ' <em style="font-style:normal;color:#94A1B2;font-weight:400;font-size:12px">' +
-         (x.m.lg || '') + ' ' + (x.m.num || '') + '　首选 ' + Math.round(x.p * 100) + '%</em></div>';
+         _mLbl(x.m) + '　首选 ' + Math.round(x.p * 100) + '%</em></div>';
     h += '<div style="margin-top:7px;line-height:1.75;font-size:13px">';
     h += '<div>胜平负最低：<b>' + l.N1 + ' ' + l.o1.toFixed(2) + '</b>' +
          (l.s1 ? '　历史命中 ' + Math.round(l.s1[0] * 100) + '%' : '') + '</div>';
@@ -2545,6 +2586,7 @@ renderRec = function () {
           h += '<div class="strow" style="padding:10px 2px">' +
                '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a +
                '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+               _mLbl(x.m) + '　' +
                (x.res === 'H' ? '方向主胜' : (x.res === 'D' ? '方向平局' : '方向客胜')) +
                '</s></span>' +
                '<span style="width:52px;text-align:right;font-weight:700">' + x.txt + '</span>' +
@@ -2581,7 +2623,9 @@ renderRec = function () {
 
     for (const x of list.slice(0, 6)) {
       h += '<div class="strow" style="padding:11px 2px">' +
-           '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a + '</span>' +
+           '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a +
+           '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+           _mLbl(x.m) + '</s></span>' +
            '<span style="width:60px;text-align:right;font-weight:600">' + x.txt + '</span>' +
            '<span style="width:50px;text-align:right;color:#0E6B66">' + (x.p * 100).toFixed(0) + '%</span>' +
            (pool.odds ? '<span style="width:46px;text-align:right">' + (x.od ? x.od.toFixed(2) : '—') + '</span>' +
@@ -2645,7 +2689,9 @@ renderRec = function () {
       for (const x of arr.slice(0, 5)) {
         const ev = x.p * x.od;
         s += '<div class="strow" style="padding:11px 2px">' +
-             '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a + '</span>' +
+             '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a +
+             '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+             _mLbl(x.m) + '</s></span>' +
              '<span style="width:64px;text-align:right;color:#0E6B66;font-weight:600">' +
              (lab === '平' ? '平 ' : '让平 ') + (x.p * 100).toFixed(0) + '%</span>' +
              '<span style="width:48px;text-align:right">' + x.od.toFixed(2) + '</span>' +
@@ -2768,6 +2814,19 @@ function recPredictions() {
   return out;
 }
 
+function _mLbl(m) {
+  if (!m) return '';
+  var d = String(m.date || m.mdate || m.dt || '');
+  var t = String(m.time || '');
+  if (!t && d.length >= 16) t = d.slice(11, 16);
+  var out = [];
+  if (m.num) out.push(m.num);
+  if (m.lg) out.push(m.lg);
+  if (d.length >= 10) out.push(d.slice(5, 10));
+  if (t) out.push(t.slice(0, 5));
+  return out.join(' ');
+}
+
 function renderRec() {
   const box = document.getElementById('recBody');
   if (!box) return;
@@ -2783,7 +2842,10 @@ function renderRec() {
     { name: '半全场', thr: 0.40, tag: '≥40%',
       pick: x => ({ txt: SERIES[x.r.hfFirst], p: x.r.hfP, detail: '次选 ' + SERIES[x.r.ord[1]] + ' ' + (x.r.hf[x.r.ord[1]] * 100).toFixed(0) + '%' }) },
     { name: '比分', thr: 0.28, tag: '前三合计≥28%',
-      pick: x => ({ txt: x.r.top3[0][1], p: x.r.top3[0][0], detail: '前三合计 ' + (x.r.p3 * 100).toFixed(0) + '%　前五 ' + x.r.top5.map(y => y[1]).join(' / ') }) }
+      pick: x => ({ txt: x.r.top3.map(y => y[1]).join(' / '),
+                    p: x.r.top3[0][0],
+                    detail: '前三合计 ' + (x.r.p3 * 100).toFixed(0) + '%　' +
+                            x.r.top3.map(y => y[1] + ' ' + (y[0] * 100).toFixed(1) + '%').join('　') }) }
   ];
   let h = '';
   if (fromCloud) {
@@ -2859,7 +2921,9 @@ function renderRec() {
       for (const x of arr.slice(0, 5)) {
         const ev = x.p * x.od;
         s += '<div class="strow" style="padding:11px 2px">' +
-             '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a + '</span>' +
+             '<span style="flex:1">' + x.m.h + ' vs ' + x.m.a +
+             '<br><s style="font-size:11px;color:#94A1B2;text-decoration:none">' +
+             _mLbl(x.m) + '</s></span>' +
              '<span style="width:64px;text-align:right;color:#0E6B66;font-weight:600">' +
              (lab === '平' ? '平 ' : '让平 ') + (x.p * 100).toFixed(0) + '%</span>' +
              '<span style="width:48px;text-align:right">' + x.od.toFixed(2) + '</span>' +
@@ -2980,7 +3044,9 @@ function renderGlance() {
   let h = '';
   if (top.length) {
     for (const x of top) {
-      h += '<div class="gl"><span class="k">' + x.m.h + ' vs ' + x.m.a + '</span>' +
+      h += '<div class="gl"><span class="k">' + x.m.h + ' vs ' + x.m.a +
+         '<br><s style="font-size:10.5px;color:#94A1B2;text-decoration:none">' +
+         _mLbl(x.m) + '</s></span>' +
            '<span class="v">' + x.r.pick + '<em>' + (x.r.maxP * 100).toFixed(1) + '%</em></span></div>';
     }
   } else {
@@ -5315,5 +5381,59 @@ try {
   }
 } catch (e) { /* 沙箱或隐私模式：没有 SW 也能用 */ }
 </script>
+
+<style>
+#amask{position:fixed;inset:0;background:rgba(11,31,51,.55);z-index:9998;display:none}
+#abox{position:fixed;inset:0;z-index:9999;display:none;background:#F5F7FA;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;padding:0 0 24px}
+#abox.on{display:block}
+#amask.on{display:block}
+#abar{position:sticky;top:0;background:#0B1F33;color:#fff;display:flex;align-items:center;
+  justify-content:space-between;padding:10px 14px;font-size:14px;z-index:10000}
+#abar b{font-weight:600}
+#ax{background:rgba(255,255,255,.16);border:0;color:#fff;font-size:20px;line-height:1;
+  width:34px;height:34px;border-radius:50%}
+#abody{padding:12px 14px}
+</style>
+<div id="amask" onclick="closeAM()"></div>
+<div id="abox">
+  <div id="abar"><b id="atitle">分析</b><button id="ax" onclick="closeAM()">×</button></div>
+  <div id="abody"></div>
+</div>
+<script>
+window.openAM = function () {
+  var out = document.getElementById('out');
+  var body = document.getElementById('abody');
+  if (!out || !body) return;
+  var html = out.innerHTML || '';
+  if (html.replace(/\s/g, '').length < 20) return;
+  body.innerHTML = html;
+  document.getElementById('amask').className = 'on';
+  document.getElementById('abox').className = 'on';
+  document.getElementById('abox').scrollTop = 0;
+  try {
+    var h = (document.getElementById('h') || {}).value || '';
+    var a = (document.getElementById('a') || {}).value || '';
+    document.getElementById('atitle').textContent = h ? (h + ' vs ' + a) : '分析';
+  } catch (e) { }
+};
+window.closeAM = function () {
+  document.getElementById('amask').className = '';
+  document.getElementById('abox').className = '';
+  document.getElementById('abody').innerHTML = '';
+};
+(function () {
+  var _r = window.render || (typeof render === 'function' ? render : null);
+  if (!_r) return;
+  var wrapped = function (r, meta) {
+    var v = _r(r, meta);
+    try { window.openAM(); } catch (e) { }
+    return v;
+  };
+  try { render = wrapped; } catch (e) { }
+  window.render = wrapped;
+})();
+</script>
+
 </body>
 </html>

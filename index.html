@@ -342,7 +342,7 @@ header .sub{font-size:14.5px}
 <body>
 <header>
   <h1>澜枢</h1>
-  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v146</b></div>
+  <div class="sub">Dixon-Coles 泊松 · 只吃赔率 · 离线可用 · <b style="color:#7FD1C8">v148</b></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="pred">预测</button>
@@ -800,6 +800,35 @@ function verdictCard(r, meta) {
   const tgOver = (r.tg[3]||0)+(r.tg[4]||0)+(r.tg[5]||0)+(r.tg[6]||0)+(r.tg[7]||0);
   let band = null;
   try { band = (typeof oddsBand === 'function') ? oddsBand(meta.eu) : null; } catch (e) {}
+  h += (function () {
+    try {
+      var e2 = meta.eu || (CUR.meta && CUR.meta.eu) || [];
+      var oh = +e2[0], od = +e2[1], oa = +e2[2];
+      if (!(oh > 1) || !(od > 1) || !(oa > 1)) return '';
+      var inv = [1 / oh, 1 / od, 1 / oa];
+      var s = inv[0] + inv[1] + inv[2];
+      var ph = inv[0] / s, pd = inv[1] / s, pa = inv[2] / s;
+      var bal = Math.min(ph, pa) > 0.30;
+      var msg = '';
+      if (bal && pd < 0.19) {
+        msg = '两边几乎五五开（' + Math.round(ph * 100) + '% / ' + Math.round(pa * 100) +
+          '%），平赔 ' + od.toFixed(2) + ' 只隐含 ' + Math.round(pd * 100) +
+          '%。这种盘口平赔通常应在 3.2~3.8。';
+      } else if (!bal && pd > 0.36 && Math.max(ph, pa) > 0.62) {
+        msg = '一边明显热门（' + Math.round(Math.max(ph, pa) * 100) +
+          '%），平赔 ' + od.toFixed(2) + ' 却隐含 ' + Math.round(pd * 100) +
+          '%。热门盘平赔通常不会这么高。';
+      }
+      if (!msg) return '';
+      return '<div style="margin:2px 0 8px;padding:9px 11px;background:#FDF3E6;' +
+        'border:1px solid #F0D9B5;border-radius:9px;color:#8A6D1F;' +
+        'font-size:12.5px;line-height:1.75">' +
+        '⚠ <b>这三个赔率不太匹配</b><br>' + msg +
+        '<br><span style="color:#A08A5A">下面的概率是按这组赔率算的，可能失真；' +
+        '建议核对后再看。</span></div>';
+    } catch (e) { return ''; }
+  })();
+
   h += '<div style="padding:8px 2px;border-bottom:1px dashed #eef2f7;line-height:1.8">' +
        '<b style="color:#0B1F33">② 3 球及以上：' + Math.round(tgOver*100) + '%</b><br>' +
        '<span style="color:#607080">模型 ' + Math.round(tgOver*100) + '%' +
@@ -809,6 +838,65 @@ function verdictCard(r, meta) {
        Math.round(tgOver*100) + '%</b>（以模型为准）</span><br>' +
        '<span style="color:#8A95A3">「同赔率档」只看了一个赔率数字，实测比模型差；' +
        '两边差得多的时候，信模型。</span>';
+  h += (function () {
+    var t = r.tg || [];
+    var p3 = (t[3] || 0) + (t[4] || 0) + (t[5] || 0) + (t[6] || 0) + (t[7] || 0);
+    if (!(p3 > 0.02)) return '';
+    var cells = [
+      ['3 球', t[3] || 0],
+      ['4 球', t[4] || 0],
+      ['5 球', t[5] || 0],
+      ['6 球', t[6] || 0],
+      ['7+ 球', t[7] || 0]
+    ];
+    var html = '';
+    for (var i = 0; i < cells.length; i++) {
+      var sh = cells[i][1] / p3;
+      var lv = sh >= 0.25 ? ['高', '#2E7D32']
+        : (sh >= 0.12 ? ['中', '#8A6D1F'] : ['低', '#B0503A']);
+      html += '<div style="display:flex;gap:6px;padding:2px 0">' +
+        '<span style="width:46px;color:#4A5A6A">' + cells[i][0] + '</span>' +
+        '<span style="width:50px;text-align:right;color:#0E6B66;font-weight:600">' +
+        (sh * 100).toFixed(0) + '%</span>' +
+        '<span style="width:74px;text-align:right;color:#8A95A3;font-size:12px">' +
+        '全场 ' + (cells[i][1] * 100).toFixed(1) + '%</span>' +
+        '<span style="width:30px;text-align:right;color:' + lv[1] +
+        ';font-weight:600">' + lv[0] + '</span></div>';
+    }
+    return '<div style="margin:2px 0 8px;padding:9px 11px;background:#F7F9FC;' +
+      'border:1px solid #E4EAF2;border-radius:9px;font-size:12.5px;line-height:1.7">' +
+      '<b style="color:#4A5A6A">进 3 球以上之后，最可能是几球</b>' +
+      '<div style="color:#8A95A3;font-size:12px;padding:2px 0 4px">' +
+      '左边是「占这 ' + Math.round(p3 * 100) +
+      '%」里的比例，右边是占全场的比例</div>' + html +
+      '<div style="color:#A08A5A;font-size:12px;padding-top:4px">' +
+      '占比越高的档，赔率越低。3 球通常是最高的一档（它本身就是最常见的「3球以上」）；' +
+      '想买 4 球、5 球、7+ 球这种高赔，先看这里的占比——低于一成就是碰运气。</div></div>';
+  })();
+
+  h += (function () {
+    var t = r.tg || [];
+    var p2 = (t[0] || 0) + (t[1] || 0) + (t[2] || 0);
+    var p5 = (t[5] || 0) + (t[6] || 0) + (t[7] || 0);
+    var c2 = goalCal('p2', p2), c3 = goalCal('p3', tgOver), c5 = goalCal('p5', p5);
+    var row = function (lab, raw, cal) {
+      var d = (cal - raw) * 100;
+      var col = Math.abs(d) < 1 ? '#8A95A3' : (d > 0 ? '#2E7D32' : '#C0504D');
+      return '<span style="display:inline-block;width:104px">' + lab + '</span>' +
+        '模型 <b>' + Math.round(raw * 100) + '%</b>' +
+        '　实际同类 <b style="color:' + col + '">' + Math.round(cal * 100) + '%</b>' +
+        '　<span style="color:' + col + ';font-size:12px">' +
+        (Math.abs(d) < 1 ? '基本一致' : (d > 0 ? '+' : '') + d.toFixed(0) + 'pp') +
+        '</span><br>';
+    };
+    return '<div style="margin:2px 0 8px;padding:8px 10px;background:#F7F9FC;' +
+      'border:1px solid #E4EAF2;border-radius:8px;font-size:12.5px;line-height:1.75">' +
+      '<b style="color:#4A5A6A">历史校准后（9,468 场同档实测）</b><br>' +
+      row('2 球及以下', p2, c2) + row('3 球及以上', tgOver, c3) +
+      row('5 球及以上', p5, c5) +
+      '<span style="color:#8A95A3">上面的百分比是模型算的；这一行是「同样的比例，' +
+      '历史上实际出现了多少」。5 球以上模型偏乐观，会被压下来。</span></div>';
+  })();
   (function () {
     // 首选比分（从网格直接读）
     var topS = '';
@@ -3719,6 +3807,18 @@ function chipRow(title, dim, all, pickFn) {
 }
 
 const FUN_DIST = {"1A":{"n":514,"s":{"0:1":105,"1:2":100,"2:4":12,"0:3":44,"0:2":66,"1:3":41,"0:4":29,"2:3":42,"1:4":20,"3:4":10,"0:6":7,"1:5":11,"0:5":13,"1:6":3,"2:5":4},"h":{"负负":208,"平负":111,"胜负":19}},"1D":{"n":334,"s":{"0:0":79,"1:1":149,"2:2":90,"3:3":15},"h":{"胜平":46,"负平":39,"平平":114}},"1H":{"n":1105,"s":{"1:0":167,"2:0":164,"2:1":162,"4:0":78,"3:1":104,"3:0":154,"4:2":24,"7:0":4,"6:1":8,"4:1":62,"5:0":29,"6:0":14,"4:3":8,"5:1":33,"5:2":13,"5:3":6,"3:2":64,"6:2":5},"h":{"胜胜":469,"平胜":194,"负胜":39}},"2A":{"n":980,"s":{"0:2":148,"0:1":230,"0:4":33,"1:3":92,"1:2":234,"1:5":13,"2:3":58,"0:5":9,"2:4":17,"0:6":4,"1:4":30,"1:6":4,"0:3":74,"3:5":4,"3:4":14,"2:5":6,"4:5":3},"h":{"负负":344,"平负":220,"胜负":52}},"2D":{"n":781,"s":{"0:0":198,"2:2":193,"3:3":38,"1:1":343,"4:4":9},"h":{"平平":295,"胜平":92,"负平":108}},"2H":{"n":1379,"s":{"3:1":139,"2:0":231,"1:0":300,"3:2":96,"4:1":49,"4:0":68,"2:1":278,"3:0":107,"5:1":22,"5:0":21,"4:2":27,"6:1":4,"6:0":9,"5:2":5,"4:3":13,"5:3":3},"h":{"平胜":287,"胜胜":529,"负胜":53}},"3A":{"n":912,"s":{"1:3":82,"0:1":200,"1:2":225,"0:2":143,"0:4":17,"2:4":17,"2:5":7,"0:3":80,"1:4":30,"1:5":12,"2:3":67,"3:4":15,"2:6":3,"0:5":4,"3:5":3},"h":{"平负":220,"负负":316,"胜负":49}},"3D":{"n":801,"s":{"1:1":391,"2:2":165,"0:0":213,"3:3":29},"h":{"平平":312,"负平":105,"胜平":106}},"3H":{"n":1072,"s":{"1:0":269,"3:2":76,"2:0":156,"2:1":261,"4:2":23,"3:0":74,"3:1":94,"4:0":30,"4:1":41,"5:3":7,"4:3":6,"5:1":16,"5:2":7,"5:0":6},"h":{"胜胜":377,"负胜":54,"平胜":244}},"4A":{"n":563,"s":{"0:2":83,"1:2":147,"2:4":15,"0:3":40,"1:3":41,"0:1":133,"2:3":48,"0:4":14,"1:5":4,"3:4":7,"1:4":18,"2:5":3,"0:5":4},"h":{"负负":201,"平负":128,"胜负":31}},"4D":{"n":469,"s":{"0:0":154,"2:2":83,"1:1":210,"3:3":22},"h":{"平平":198,"负平":62,"胜平":52}},"4H":{"n":557,"s":{"1:0":123,"3:1":52,"6:1":3,"2:1":138,"3:2":53,"2:0":80,"4:2":11,"5:1":8,"3:0":34,"4:3":8,"4:0":15,"5:0":5,"4:1":21,"5:2":3},"h":{"负胜":29,"胜胜":186,"平胜":148}},"5D":{"n":1,"s":{},"h":{"平平":1}}};
+const GOAL_CAL = {
+  p2: [[0, 0.25, 0.995], [0.25, 0.35, 1.082], [0.35, 0.45, 1.08], [0.45, 1, 0.954]],
+  p3: [[0, 0.40, 1.179], [0.40, 0.55, 1.03], [0.55, 0.70, 0.949], [0.70, 1, 0.984]],
+  p5: [[0, 0.15, 1.053], [0.15, 0.28, 0.888], [0.28, 1, 0.858]]
+};
+function goalCal(kind, p) {
+  var T = GOAL_CAL[kind] || [], f = 1;
+  for (var i = 0; i < T.length; i++) {
+    if (p >= T[i][0] && p < T[i][1]) { f = T[i][2]; break; }
+  }
+  return Math.max(0, Math.min(1, p * f));
+}
 const FUN_BD = [['1.0-1.4',1.0,1.4],['1.4-1.8',1.4,1.8],['1.8-2.2',1.8,2.2],['2.2-2.8',2.2,2.8],['2.8-3.6',2.8,3.6],['3.6+',3.6,99]];
 const FUN_HFNAME = {aa:'负负',ad:'负平',ah:'负胜',da:'平负',dd:'平平',dh:'平胜',ha:'胜负',hd:'胜平',hh:'胜胜'};
 const FUN_HFALLOW = {H:['胜胜','平胜','负胜'],D:['平平','胜平','负平'],A:['负负','平负','胜负']};
